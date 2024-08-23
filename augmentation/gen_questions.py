@@ -11,20 +11,20 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-from llm.base import LLM
+from llm.base import LLM, vLLM
 from prompts.mds import *
-from data_augmentation.utils import normalize_texts
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
     parser.add_argument("--shard", type=int, default=0, help="the n-th shard")
     parser.add_argument("--shard_size", type=int, default=200, help="size of one shard")
+    parser.add_argument("--output_dir", type=str, help="directory for the output result")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
     parser.add_argument("--multi_news_file", type=str, help="Path to multi-news")
-    parser.add_argument("--wcep_10_file", type=str, help="Path to wcep-10")
     parser.add_argument("--quick_test", type=int, default=None, help="Quickly test a few examples")
+    parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
 
     # ICL setting
     parser.add_argument("--ndoc", type=int, help="Number of documents, the exact number will go in decoder.")
@@ -48,7 +48,6 @@ def main():
 
     # Use summarization/extraction of the documents
     parser.add_argument("--ampere_gpu", default=False, action='store_true')
-    # parser.add_argument("--used_field_in_demo", type=str, default=None, help="Use compressed text data. Option: `full`, `summary`, `extraction`")
 
     # Load config
     args = parser.parse_args()
@@ -79,7 +78,10 @@ def main():
     logger.info(f"Set the model max number of documents to {args.ndoc}/{args.ndoc_pool}")
         
     # Load the model or setup the API
-    llm = LLM(args)
+    if args.load_mode == 'vllm':
+        llm = vLLM(args)
+    else:
+        llm = LLM(args)
     
     # Generate prompts
     np.random.seed(args.seed)
@@ -89,12 +91,9 @@ def main():
 
     # Load evaluation data
     from datasets import load_from_disk, concatenate_datasets
-    multi_news = load_from_disk(args.multi_news_file)['train'] # hf data
-    wcep_10 = load_from_disk(args.wcep_10_file)['train'] # torch files are from original raw file
+    multi_news = load_from_disk(args.multi_news_file)[args.split]
 
-    ## super long document: multi_news 16430
-
-    ## preproces documents here
+    # Preproces dataset
     import re
     def normalize(string):
         string = string.strip()
@@ -104,96 +103,87 @@ def main():
         string = re.sub(pattern, ' ', string).strip()
         pattern = re.compile("</s>")
         string = re.sub(pattern, '|||||', string).strip() # align seperation 
-        return string
+        return string.split('|||||')
 
-    multi_news = multi_news.map(lambda x: {"document": normalize(x['document']), 'mds-source': 'multi_news'})
-    wcep_10 = wcep_10.map(lambda x: {"document": normalize(x['document']), 'mds-source': 'wcep-10'})
-    eval_dataset = concatenate_datasets([multi_news, wcep_10])
+    multi_news = multi_news.map(lambda x: 
+        {"document": normalize(x['document']), 'mds-source': 'multi_news'}
+    )
+    multi_news = multi_news.filter(lambda x: len(x['document']) >=2 )
+
+    dataset = multi_news
 
     # Sample quick test
     if args.quick_test is not None:
         np.random.seed(args.seed)
-        eval_ids = np.random.choice(len(eval_dataset), args.quick_test, replace=False)
-        eval_dataset = [eval_dataset[int(idx)] for idx in eval_ids]
-
-    # Generate the demonstration part
-    if args.shot > 0:
-        pass
-    else:
-        demo_prompt = ""
+        ids = np.random.choice(len(dataset), args.quick_test, replace=False)
+        dataset = [dataset[int(idx)] for idx in ids]
 
 
     # Generate the prompt
-    eval_data = []
+    n_total = 0
+    data = []
     logger.info("Generating prompts...") 
-    for idx, eval_item in enumerate(tqdm(eval_dataset)):
-        summary_text = normalize_texts(eval_item['summary'])
+    for idx, item in enumerate(tqdm(dataset)):
+        summary_text = normalize_texts(item['summary'])
+
         prompt = prompt_question_gen(
             INST=instruction_question,
             D=summary_text,
             PREFIX="Questions:\n<q>"
         )
-        eval_data.append({
-            'example_id': f"{eval_item['mds-source']}-{eval_ids[idx]}", 
+
+        data.append({
+            'example_id': f"{item['mds-source']}-{ids[idx]}", 
             'shard_id': f"{args.shard}-{idx}", 
+            'full_text': summary_text,
             'prompt': prompt,
-            'full_text': eval_item['summary'],
-            'ndoc': len(eval_item['document'].split('|||||')),
-            'doc_full_text': "see other file",
-            'doc_prompt': "see other file"
+            'docs': ""
         })
-    logger.info("Done prompt preparation.")
+        n_total += 1
+    logger.info(f"Done prompt preparation. Total number of prompts: {n_total}")
 
     # Start generation
     logger.info("Generating output...")
     start = args.shard * args.shard_size
     end = start + args.shard_size
-    if start >= len(eval_data):
+    if start >= len(data):
         exit(0) # finished
 
-    eval_data = eval_data[start:end]
-    for idx, item in enumerate(tqdm(eval_data)):
+    data = data[start:end]
+    for idx, item in enumerate(tqdm(data, "augmenting", total=len(data))):
         prompt = item['prompt']
         prompt_len = len(llm.tokenizer.tokenize(prompt))
-        # full_text = item.pop('full_text') # this should be taken out later.
-
-        ## The other claims of documetns are not.
-        output_array = [llm.generate(prompt, min(args.max_new_tokens, args.max_length-prompt_len))]
-        item['prompt_len'] = prompt_len
+        output = llm.generate(prompt, 
+            max_tokens=min(args.max_new_tokens, args.max_length-prompt_len)
+        )
         
-        output_array[-1] = output_array[-1].replace("<|im_end|>", "").rstrip()
-        if output_array[-1].endswith("End."):
-            output_array[-1] = output_array[-1][:-len("End.")]
+        ## postprocess for consistent format
+        output = output.replace("<|im_end|>", "").rstrip()
+        if output.endswith("End."):
+            output = output[:-len("End.")]
+
+        output = output.split('Note:')[0]
+        output = output.split('Answer:')[0]
+        if output == "":
+            logger.info(f"Original raw output: {output}")
+            output = llm.generate(prompt, 
+                max_tokens=min(args.max_new_tokens, args.max_length-prompt_len), 
+                min_tokens=16
+            )
 
         logger.info(f"Example: {item['example_id']} -- {item['shard_id']}")
         logger.info(f"prompt text (length={prompt_len}): {prompt}")
-        logger.info(f"Final model output: {output_array[-1]}") 
+        logger.info(f"Final model output: {output}") 
+        item['output'] = output 
 
-        ### if we dont have a good-ish summary's claim. we move on to the next
-        if (len(output_array[-1].split('</q>')) < 2):
-            item['output'] = []
-            logger.info("Bypass this document', since generated questions are invalid.")
-        else:
-            item['output'] = output_array if len(output_array) > 1 else output_array[0]
-
-        if idx != 0:
-            del item['prompt']
-            del item['doc_prompt']
-        
     # Save the result
-    model_name = args.model
-    if "/" in model_name:
-        model_name = model_name.split("/")[-1]
-    name = f"{args.dataset_name}-{model_name}-{args.shard}-{args.tag}-{args.seed}"
+    data = {"args": args.__dict__, "data": data}
 
-    if args.quick_test is not None:
-        name += f"-susbet{args.quick_test}"
+    output_dir = os.path.join(args.output_dir, args.tag)
+    os.makedirs(output_dir, exist_ok=True)
 
-    eval_data = {"args": args.__dict__, "data": eval_data}
-
-    if not os.path.exists("data/mds"):
-        os.makedirs("data/mds")
-    json.dump(eval_data, open("data/mds/" + name + ".json", "w"), indent=4)
+    output_file = os.path.join(output_dir, f"{args.model}-{args.shard}.json")
+    json.dump(data, open(output_file), indent=4)
 
 if __name__ == "__main__":
     main()

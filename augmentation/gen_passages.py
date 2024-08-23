@@ -158,8 +158,6 @@ def main():
         data.append({
             'example_id': f"{item['mds-source']}-{ids[idx]}", 
             'shard_id': f"{args.shard}-{idx}", 
-            'prompt': '',
-            'full_text': '',
             'ndoc': len(document_list),
             'docs': {'full_text': document_list, 'prompt': prompt_list }
         })
@@ -212,7 +210,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     output_file = os.path.join(output_dir, f"{args.model}-{args.shard}.json")
-    json.dump(data, open(args.output_file), indent=4)
+    json.dump(data, open(output_file), indent=4)
 
 if __name__ == "__main__":
     main()
