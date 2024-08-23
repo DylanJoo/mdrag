@@ -9,12 +9,7 @@ from tqdm import tqdm
 import time
 import string
 import re
-import yaml
-from .utils import *
 from nltk import sent_tokenize
-
-def remove_citations(sent):
-    return re.sub(r"\[\d+", "", re.sub(r" \[\d+", "", sent)).replace(" |", "").replace("]", "")
 
 from vllm import LLM as v_llm 
 from vllm import SamplingParams

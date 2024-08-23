@@ -13,18 +13,18 @@ from tqdm import tqdm
 
 from llm.base import LLM, vLLM
 from prompts.mds import *
-from data_augmentation.utils import normalize_texts
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
     parser.add_argument("--shard", type=int, default=0, help="the n-th shard")
     parser.add_argument("--shard_size", type=int, default=200, help="size of one shard")
+    parser.add_argument("--output_dir", type=str, help="directory for the output result")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
     parser.add_argument("--multi_news_file", type=str, help="Path to multi-news")
-    parser.add_argument("--wcep_10_file", type=str, help="Path to wcep-10")
     parser.add_argument("--quick_test", type=int, default=None, help="Quickly test a few examples")
+    parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
 
     # ICL setting
     parser.add_argument("--ndoc", type=int, help="Number of documents, the exact number will go in decoder.")
@@ -91,12 +91,9 @@ def main():
 
     # Load evaluation data
     from datasets import load_from_disk, concatenate_datasets
-    multi_news = load_from_disk(args.multi_news_file)['train'] # hf data
-    wcep_10 = load_from_disk(args.wcep_10_file)['train'] # torch files are from original raw file
+    multi_news = load_from_disk(args.multi_news_file)[args.split]
 
-    ## super long document: multi_news 16430
-
-    ## preproces documents here
+    # Preproces dataset
     import re
     def normalize(string):
         string = string.strip()
@@ -106,36 +103,59 @@ def main():
         string = re.sub(pattern, ' ', string).strip()
         pattern = re.compile("</s>")
         string = re.sub(pattern, '|||||', string).strip() # align seperation 
-        return string
+        return string.split('|||||')
 
-    multi_news = multi_news.map(lambda x: {"document": normalize(x['document']), 'mds-source': 'multi_news'})
-    wcep_10 = wcep_10.map(lambda x: {"document": normalize(x['document']), 'mds-source': 'wcep-10'})
-    eval_dataset = concatenate_datasets([multi_news, wcep_10])
+    multi_news = multi_news.map(lambda x: 
+        {"document": normalize(x['document']), 'mds-source': 'multi_news'}
+    )
+    multi_news = multi_news.filter(lambda x: len(x['document']) >=2 )
+
+    ## chunking the long document
+    def maybe_chunking(dlist, n=1024):
+        overlength = [(i, len(d.split()) > n) for i, d in enumerate(dlist)]
+
+        if any([o for _, o in overlength]):
+            to_return = []
+            for i, do_chunk in overlength:
+                if do_chunk:
+                    doc = dlist[i].split()
+                    while len(doc) > 0:
+                        to_return.append(" ".join(doc[:512]))
+                        doc = doc[512:]
+                else:
+                    to_return += dlist[i]
+            return to_return
+        else:
+            return dlist
+
+    multi_news = multi_news.map(
+        lambda x: {"document": maybe_chunking(x['document'], n=1024)}
+    )
+    dataset = multi_news
 
     # Sample quick test
     if args.quick_test is not None:
         np.random.seed(args.seed)
-        eval_ids = np.random.choice(len(eval_dataset), args.quick_test, replace=False)
-        eval_dataset = [eval_dataset[int(idx)] for idx in eval_ids]
+        ids = np.random.choice(len(dataset), args.quick_test, replace=False)
+        dataset = [dataset[int(idx)] for idx in ids]
 
     # Generate the prompt
-    eval_data = []
+    data = []
     logger.info("Generating prompts...") 
-    for idx, eval_item in enumerate(tqdm(eval_dataset)):
-        document_list = eval_item['document'].split('|||||')
-        document_list = [normalize_texts(d, 5120) for d in document_list]
+    for idx, item in enumerate(tqdm(dataset)):
+        document_list = item['document']
 
         prompt_list = []
         for document in document_list:
             prompt = prompt_summary_gen(
                 INST=instruction_summary,
                 D=document,
-                PREFIX="Paragraphs:\n<p>"
+                PREFIX="Passages:\n<p>"
             )
             prompt_list.append(prompt)
 
-        eval_data.append({
-            'example_id': f"{eval_item['mds-source']}-{eval_ids[idx]}", 
+        data.append({
+            'example_id': f"{item['mds-source']}-{ids[idx]}", 
             'shard_id': f"{args.shard}-{idx}", 
             'prompt': '',
             'full_text': '',
@@ -148,11 +168,11 @@ def main():
     logger.info("Generating output...")
     start = args.shard * args.shard_size
     end = start + args.shard_size
-    if start >= len(eval_data):
+    if start >= len(data):
         exit(0) # finished
 
-    eval_data = eval_data[start:end]
-    for idx, item in enumerate(tqdm(eval_data)):
+    data = data[start:end]
+    for idx, item in enumerate(tqdm(data)):
         output_array = []
 
         for prompt in item['docs']['prompt']:
@@ -161,6 +181,7 @@ def main():
                 max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
             )
 
+            ## postprocess for consistent format
             output = output.replace("<|im_end|>", "").rstrip()
             if output.endswith("End."):
                 output = output[:-len("End.")]
@@ -173,7 +194,6 @@ def main():
                     max_tokens=min(args.max_new_tokens, args.max_length-prompt_len), 
                     min_tokens=64
                 )
-
             output_array.append(output)
 
         logger.info(f"Example: {item['example_id']} -- {item['shard_id']}")
@@ -183,23 +203,14 @@ def main():
         item['docs']['output'] = output_array
         item['docs']['prompt'] = ""
 
-        # assert len(output_array) == len(item['docs']['prompt']), 'The output amount is incorrect.'
-
-
     # Save the result
-    model_name = args.model
-    if "/" in model_name:
-        model_name = model_name.split("/")[-1]
-    name = f"{args.dataset_name}-{model_name}-{args.shard}-{args.tag}-{args.seed}"
+    data = {"args": args.__dict__, "data": data}
 
-    if args.quick_test is not None:
-        name += f"-subset{args.quick_test}"
+    output_dir = os.path.join(args.output_dir, args.tag)
+    os.makedirs(output_dir, exist_ok=True)
 
-    eval_data = {"args": args.__dict__, "data": eval_data}
-
-    if not os.path.exists("data/mds"):
-        os.makedirs("data/mds")
-    json.dump(eval_data, open("data/mds/" + name + ".json", "w"), indent=4)
+    output_file = os.path.join(output_dir, f"{args.model}-{args.shard}.json")
+    json.dump(data, open(args.output_file), indent=4)
 
 if __name__ == "__main__":
     main()
