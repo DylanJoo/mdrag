@@ -1,6 +1,6 @@
 #!/bin/sh
 # The following lines instruct Slurm 
-#SBATCH --job-name=flat-index
+#SBATCH --job-name=doc-r-index
 #SBATCH --cpus-per-task=32
 #SBATCH --nodes=1
 #SBATCH --mem=32G
@@ -15,7 +15,7 @@ conda activate rag
 cd ~/rag-rerank
 
 # flatten generated passages
-python3 data_augmentation/flatten.py \
+python3 augmentation/flatten.py \
     --input_dir data/mds  \
     --output_dir data/mds/mds-docs-psgs
 

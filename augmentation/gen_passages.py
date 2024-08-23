@@ -118,12 +118,12 @@ def main():
             to_return = []
             for i, do_chunk in overlength:
                 if do_chunk:
-                    doc = dlist[i].split()
-                    while len(doc) > 0:
-                        to_return.append(" ".join(doc[:512]))
-                        doc = doc[512:]
+                    words = dlist[i].split()
+                    while len(words) > 0:
+                        to_return.append(" ".join(words[:512]))
+                        words = words[512:]
                 else:
-                    to_return += dlist[i]
+                    to_return.append(dlist[i])
             return to_return
         else:
             return dlist
@@ -140,6 +140,7 @@ def main():
         dataset = [dataset[int(idx)] for idx in ids]
 
     # Generate the prompt
+    n_total = 0
     data = []
     logger.info("Generating prompts...") 
     for idx, item in enumerate(tqdm(dataset)):
@@ -162,7 +163,8 @@ def main():
             'ndoc': len(document_list),
             'docs': {'full_text': document_list, 'prompt': prompt_list }
         })
-    logger.info("Done prompt preparation.")
+        n_total += len(document_list)
+    logger.info(f"Done prompt preparation. Total number of prompts: {n_total}")
 
     # Start generation
     logger.info("Generating output...")
@@ -172,7 +174,7 @@ def main():
         exit(0) # finished
 
     data = data[start:end]
-    for idx, item in enumerate(tqdm(data)):
+    for idx, item in enumerate(tqdm(data, "augmenting", total=len(data))):
         output_array = []
 
         for prompt in item['docs']['prompt']:
