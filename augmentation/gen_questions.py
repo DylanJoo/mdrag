@@ -193,7 +193,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     output_file = os.path.join(output_dir, f"{args.model_tag}-{args.shard}.json")
-    json.dump(data, open(output_file), indent=4)
+    json.dump(data, open(output_file, 'w'), indent=4)
 
 if __name__ == "__main__":
     main()
