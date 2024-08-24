@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--dataset_name", type=str, help="Name of the dataset (for saving)")
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
+    parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
     parser.add_argument("--load_mode", type=str, default='no', help="Model to use")
 
     # Decoding
@@ -105,6 +106,14 @@ def main():
         string = re.sub(pattern, '|||||', string).strip() # align seperation 
         return string.split('|||||')
 
+    def normalize_text(string):
+        string = string.strip()
+        pattern = re.compile(r"\n")
+        string = re.sub(pattern, ' ', string).strip()
+        pattern = re.compile(r"\s+")
+        string = re.sub(pattern, ' ', string).strip()
+        return string
+
     multi_news = multi_news.map(lambda x: 
         {"document": normalize(x['document']), 'mds-source': 'multi_news'}
     )
@@ -148,8 +157,8 @@ def main():
 
         prompt_list = []
         for document in document_list:
-            prompt = prompt_summary_gen(
-                INST=instruction_summary,
+            prompt = prompt_passage_gen(
+                INST=instruction_passage,
                 D=document,
                 PREFIX="Passages:\n<p>"
             )
@@ -158,6 +167,7 @@ def main():
         data.append({
             'example_id': f"{item['mds-source']}-{ids[idx]}", 
             'shard_id': f"{args.shard}-{idx}", 
+            'summary': normalize_text(item['summary']),
             'ndoc': len(document_list),
             'docs': {'full_text': document_list, 'prompt': prompt_list }
         })
@@ -201,7 +211,8 @@ def main():
         logger.info(f"Final model output: {output_array[-1]}") 
         logger.info(f"Number of documents {item['ndoc']}") 
         item['docs']['output'] = output_array
-        item['docs']['prompt'] = ""
+        if idx != 0:
+            item['docs']['prompt'] = ""
 
     # Save the result
     data = {"args": args.__dict__, "data": data}
@@ -209,7 +220,7 @@ def main():
     output_dir = os.path.join(args.output_dir, args.tag)
     os.makedirs(output_dir, exist_ok=True)
 
-    output_file = os.path.join(output_dir, f"{args.model}-{args.shard}.json")
+    output_file = os.path.join(output_dir, f"{args.model_tag}-{args.shard}.json")
     json.dump(data, open(output_file), indent=4)
 
 if __name__ == "__main__":

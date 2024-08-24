@@ -26,12 +26,12 @@ def prompt_question_gen(INST="", D="", PREFIX="Questions:\n<q>"):
 ####################################
 # prompt for paragraphs generation #
 ####################################
-template_summary = "Instruction: {INST}\n\nDocument: {D}\n\n{PREFIX}"
+template_passage = "Instruction: {INST}\n\nDocument: {D}\n\n{PREFIX}"
 # instruction_summary = "Break down the given document into 2 to 3 standalone summaries that have similar length. Each summaries should be a self-contained passage with necessary context. Keep the wording in summaries as similar as possible to the original document. Each summaries should start with the format of a square bracket with number (e.g., [1])."
-instruction_summary = "Break down the given document into 2-3 standalone passages of approximately 200 words each, providing essential context and information. Use similar wording and phrasing as the original document. Write each passages within `<p>` and `</p>` tags."
+instruction_passage = "Break down the given document into 2-3 standalone passages of approximately 200 words each, providing essential context and information. Use similar wording and phrasing as the original document. Write each passages within `<p>` and `</p>` tags."
 # instruction_summary = "Write two standalone summaries for the given document."
-def prompt_summary_gen(INST="", D="", PREFIX="Passages:\n<p>"):
-    p = template_summary
+def prompt_passage_gen(INST="", D="", PREFIX="Passages:\n<p>"):
+    p = template_passage
     p = p.replace("{INST}", INST).strip()
     p = p.replace("{D}", D)
     p = p.replace("{PREFIX}", PREFIX).strip()
