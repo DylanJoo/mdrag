@@ -141,7 +141,7 @@ def main():
         )
 
         data.append({
-            'example_id': f"{item['mds-source']}-{ids[idx]}", 
+            'example_id': f"{item['mds-source']}-{args.split}-{ids[idx]}", 
             'shard_id': f"{args.shard}-{idx}", 
             'full_text': summary_text,
             'prompt': prompt,
@@ -192,7 +192,7 @@ def main():
     output_dir = os.path.join(args.output_dir, args.tag)
     os.makedirs(output_dir, exist_ok=True)
 
-    output_file = os.path.join(output_dir, f"{args.model_tag}-{args.shard}.json")
+    output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}-{args.shard}.json")
     json.dump(data, open(output_file, 'w'), indent=4)
 
 if __name__ == "__main__":

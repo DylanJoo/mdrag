@@ -15,10 +15,11 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-for shard_i in $(seq 0 24);do
+for shard_i in $(seq 0 0);do
     python3 augmentation/gen_passages.py \
         --shard $shard_i --shard_size 200 \
         --config configs/mds-decontextualize.llama3-8b-chat.yaml \
+        --split train \
         --model_tag metallama3.1-8b \
         --tag psgs-gen \
         --load_mode vllm \

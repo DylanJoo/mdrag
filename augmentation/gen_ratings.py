@@ -3,6 +3,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+import re
 import os
 import yaml
 import torch
@@ -15,15 +16,60 @@ from glob import glob
 from llm.base import LLM, vLLM
 from prompts.mds import *
 
+def replace_tags(sent, tag='q'):
+    if tag == 'q':
+        sent = re.sub(r"\<q\>|\<\/q\>", "\n", sent)
+    if tag == 'p':
+        sent = re.sub(r"\<p\>|\<\/p\>", "\n", sent)
+    pattern = re.compile(r"\n+")
+    sent = re.sub(pattern, '\n', sent)
+    return sent
+
+def load_passages(path, n=3):
+    data = json.load(open(path, 'r'))
+
+    passages = []
+    for i, item in enumerate(data['data']):
+        example_id = item['example_id']
+
+        doc_outputs = []
+        for doc_output in item['docs']['output']:
+            doc_output = normalize_texts(doc_output)
+            if doc_output == " ":
+                doc_outputs.append(["No content."])
+
+            else:
+                doc_output = doc_output.strip().split('</p>')[:n]
+                doc_output = [replace_tags(o, 'p').strip() for o in doc_output]
+                doc_output = [o.strip() for o in doc_output if o.strip() != ""]
+                doc_outputs.append(doc_output)
+
+        passages.append({
+            "example_id": example_id, 
+            "texts": doc_outputs, 
+            "docs_full_texts": [normalize_texts(d) for d in item["docs"]["full_text"]]
+        })
+    return passages
+
+def load_question(path, n=10):
+    data = json.load(open(path, 'r'))
+
+    questions = []
+    for i, item in enumerate(data['data']):
+        example_id = item['example_id']
+        if not isinstance(item['output'], list):
+            outputs = item['output'].strip().split('</q>')[:n]
+            outputs = [replace_tags(o).strip() for o in outputs]
+            questions.append({"example_id": example_id, "texts": outputs})
+    return questions
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
+    parser.add_argument("--shard_dir", type=str, help="Path to generated results")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
-    parser.add_argument("--input_dir", type=str, help="Path to generated results")
-    parser.add_argument("--multi_news_file", type=str, help="Path to multi-news")
-    parser.add_argument("--wcep_10_file", type=str, help="Path to wcep-10")
-    parser.add_argument("--quick_test", type=int, default=None, help="Quickly test a few examples")
+    parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
 
     # ICL setting
     parser.add_argument("--ndoc", type=int, help="Number of documents, the exact number will go in decoder.")
@@ -36,6 +82,7 @@ def main():
     parser.add_argument("--dataset_name", type=str, help="Name of the dataset (for saving)")
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
+    parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
     parser.add_argument("--load_mode", type=str, default='no', help="Model to use")
 
     # Decoding
@@ -47,7 +94,6 @@ def main():
 
     # Use summarization/extraction of the documents
     parser.add_argument("--ampere_gpu", default=False, action='store_true')
-    # parser.add_argument("--used_field_in_demo", type=str, default=None, help="Use compressed text data. Option: `full`, `summary`, `extraction`")
 
     # Load config
     args = parser.parse_args()
@@ -83,137 +129,90 @@ def main():
     else:
         llm = LLM(args)
     
-    # Generate prompts
-    np.random.seed(args.seed)
-
     # Load training data
-    # train_data = None
-
     # Load evaluation data
-    from datasets import load_from_disk, concatenate_datasets
-    multi_news = load_from_disk(args.multi_news_file)['train'] # hf data
-    wcep_10 = load_from_disk(args.wcep_10_file)['train'] # torch files are from original raw file
-    ## super long document: multi_news 16430
-
-    ## preproces documents here
-    import re
-    def normalize(string):
-        string = string.strip()
-        pattern = re.compile(r"\n")
-        string = re.sub(pattern, ' ', string).strip()
-        pattern = re.compile(r"\s+")
-        string = re.sub(pattern, ' ', string).strip()
-        pattern = re.compile("</s>")
-        string = re.sub(pattern, '|||||', string).strip() # align seperation 
-        return string
-
-    multi_news = multi_news.map(lambda x: {"document": normalize(x['document']), 'mds-source': 'multi_news'})
-    wcep_10 = wcep_10.map(lambda x: {"document": normalize(x['document']), 'mds-source': 'wcep-10'})
-    eval_dataset = concatenate_datasets([multi_news, wcep_10])
-
     # Sample quick test
-    if args.quick_test is not None:
-        np.random.seed(args.seed)
-        eval_ids = np.random.choice(len(eval_dataset), args.quick_test, replace=False)
-        eval_dataset = [eval_dataset[int(idx)] for idx in eval_ids]
 
-    # build mapping for full text
-    fulltexts = {}
-    logger.info("Build full text mapping...") 
-    for idx, eval_item in enumerate(tqdm(eval_dataset)):
-        example_id = f"{eval_item['mds-source']}-{eval_ids[idx]}"
-        document_list = eval_item['document'].split('|||||')
-        document_list = [normalize_texts(d, 5000) for d in document_list]
-        fulltexts[example_id] = {'mds': eval_item['summary'], 'docs': document_list}
-    logger.info("Done full text mapping.")
-
-    # build mapping for questions and summaries
     logger.info("load questions...") 
     from data_augmentation.utils import load_question
     questions_all = []
-    for file in tqdm(glob(os.path.join(args.input_dir, "*ques*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, "ques-gen/*.json"))):
         questions = load_question(file)
         questions_all += questions
     questions_all = {q['example_id']: q['texts'] for q in questions_all}
 
-    logger.info("load passages...") 
+    logger.info("load passages (and documents)...") 
     from data_augmentation.utils import load_passages
     passages_all = []
-
-    for file in tqdm(glob(os.path.join(args.input_dir, "*summ*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, "psg-gen/*.json"))):
         passages = load_passages(file)
         passages_all += passages
+    documents_all = {p['example_id']: p['docs_full_texts'] for p in passages_all}
     passages_all = {p['example_id']: p['texts'] for p in passages_all}
+    logger.info(f"Number of examples: questions -- {len(questions_all)} | passages -- {len(passages_all)}") 
 
-    ## get intercept
+    # get intersection
     overlap = questions_all.keys() & passages_all.keys()
     questions_all = {k: v for k, v in questions_all.items() if k in overlap}
     passages_all = {k: v for k, v in passages_all.items() if k in overlap}
-    logger.info(f"{len(questions_all)} remained...")
+    documents_all = {k: v for k, v in documents_all.items() if k in overlap}
+    logger.info(f"{len(questions_all)} examples remained...")
 
     # Start generation
     logger.info("Generating output...")
 
     ratings = []
     for t, example_id in enumerate(tqdm(questions_all)):
-        # mds = fulltexts[example_id]['mds']
         questions = questions_all[example_id]
-        docs = fulltexts[example_id]['docs']
-        passages = passages_all[example_id]
+        documents = documents_all[example_id]
+        passages_set = passages_all[example_id]
 
         output_array = []
-        for i, passage_list in enumerate(passages):
-            document = docs[i]
-
+        for i, passage_list in enumerate(passages_set):
             for j, passage in enumerate(passage_list):
-                if len(passage) > 10:
-                    output_vector = [-1 for _ in questions]
-                    for k, question in enumerate(questions):
-                        prompt = prompt_rating_gen(
-                            INST=instruction_rating,
-                            Q=question,
-                            C=passage,
-                            PREFIX="Rating:"
-                        )
-                        prompt_len = len(llm.tokenizer.tokenize(prompt))
-                        output = llm.generate(prompt, 
-                            max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
-                            min_tokens=1
-                        )
-                        output = output.replace("<|im_end|>", "").rstrip()
-                        if output.endswith("End."):
-                            output = output[:-len("End.")]
 
-                        # extract rating
-                        c = re.compile(r"\d|-\d")
-                        output = re.findall(c, output + "-1")[0]
-                        output = -1 if len(output) == 0 else int(output)
-                        output_vector[k] = output
-                else:
-                    output_vector = [-1 for _ in questions]
-                    prompt = ""
-                    prompt_len = -1
+                output_vector = [-1 for _ in questions]
+                for k, question in enumerate(questions):
+                    prompt = prompt_rating_gen(
+                        INST=instruction_rating,
+                        Q=question,
+                        C=passage,
+                        PREFIX="Rating:"
+                    )
+                    output = llm.generate(prompt, 
+                        max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                        min_tokens=1
+                    )
+                    output = output.replace("<|im_end|>", "").rstrip()
+                    if output.endswith("End."):
+                        output = output[:-len("End.")]
+
+                    # extract rating
+                    pattern = re.compile(r"\d|-\d")
+                    output = re.findall(pattern, output + "-1")[0]
+                    output = -1 if len(output) == 0 else int(output)
+                    output_vector[k] = output
 
                 output_array.append(output_vector)
-                logger.info(f"Example: {example_id} - {i} - {j}")
-                logger.info(f"prompt text (length={prompt_len}): {prompt}")
-                logger.info(f"Final model output: {output_vector}") 
+            logger.info(f"Example: {example_id} - doc #{i} (generated passages)")
+            logger.info(f"Final model output: {output_vector}") 
 
         ratings.append({
             "example_id": example_id,
-            "passages": passages,
+            "documents": documents,
             "questions": questions,
+            "passages": passages_set,
             "ratings": output_array
         })
         del output, output_array, output_vector, prompt
 
     # Save the result
-    name = "question_to_summaries_llama3.1"
+    output_dir = os.path.join(args.output_dir, args.tag)
+    os.makedirs(output_dir, exist_ok=True)
 
-    if not os.path.exists("data/mds/alignment"):
-        os.makedirs("data/mds/alignment")
+    output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}.jsonl")
 
-    with open("data/mds/alignment/" + name + ".jsonl", "w") as f:
+    with open(output_file, "w") as f:
         for rating in ratings:
             f.write(json.dumps(rating)+'\n')
 
