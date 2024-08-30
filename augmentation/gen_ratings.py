@@ -25,6 +25,14 @@ def replace_tags(sent, tag='q'):
     sent = re.sub(pattern, '\n', sent)
     return sent
 
+def normalize_text(string):
+    string = string.strip()
+    pattern = re.compile(r"\n")
+    string = re.sub(pattern, ' ', string).strip()
+    pattern = re.compile(r"\s+")
+    string = re.sub(pattern, ' ', string).strip()
+    return string
+
 def load_passages(path, n=3):
     data = json.load(open(path, 'r'))
 
@@ -34,10 +42,9 @@ def load_passages(path, n=3):
 
         doc_outputs = []
         for doc_output in item['docs']['output']:
-            doc_output = normalize_texts(doc_output)
+            doc_output = normalize_text(doc_output)
             if doc_output == " ":
                 doc_outputs.append(["No content."])
-
             else:
                 doc_output = doc_output.strip().split('</p>')[:n]
                 doc_output = [replace_tags(o, 'p').strip() for o in doc_output]
@@ -47,7 +54,7 @@ def load_passages(path, n=3):
         passages.append({
             "example_id": example_id, 
             "texts": doc_outputs, 
-            "docs_full_texts": [normalize_texts(d) for d in item["docs"]["full_text"]]
+            "docs_full_texts": [normalize_text(d) for d in item["docs"]["full_text"]]
         })
     return passages
 
@@ -66,7 +73,8 @@ def load_question(path, n=10):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
-    parser.add_argument("--shard_dir", type=str, help="Path to generated results")
+    parser.add_argument("--shard_dir", type=str, help="Path to pre-generated results")
+    parser.add_argument("--output_dir", type=str, help="Path to generated results")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
     parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
@@ -134,7 +142,6 @@ def main():
     # Sample quick test
 
     logger.info("load questions...") 
-    from data_augmentation.utils import load_question
     questions_all = []
     for file in tqdm(glob(os.path.join(args.shard_dir, "ques-gen/*.json"))):
         questions = load_question(file)
@@ -142,9 +149,8 @@ def main():
     questions_all = {q['example_id']: q['texts'] for q in questions_all}
 
     logger.info("load passages (and documents)...") 
-    from data_augmentation.utils import load_passages
     passages_all = []
-    for file in tqdm(glob(os.path.join(args.shard_dir, "psg-gen/*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, "psgs-gen/*.json"))):
         passages = load_passages(file)
         passages_all += passages
     documents_all = {p['example_id']: p['docs_full_texts'] for p in passages_all}
@@ -167,7 +173,11 @@ def main():
         documents = documents_all[example_id]
         passages_set = passages_all[example_id]
 
+        output = ""
         output_array = []
+        if len(passages_set) == 0:
+            continue
+
         for i, passage_list in enumerate(passages_set):
             for j, passage in enumerate(passage_list):
 
@@ -180,7 +190,7 @@ def main():
                         PREFIX="Rating:"
                     )
                     output = llm.generate(prompt, 
-                        max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                        max_tokens=args.max_new_tokens,
                         min_tokens=1
                     )
                     output = output.replace("<|im_end|>", "").rstrip()
@@ -194,6 +204,7 @@ def main():
                     output_vector[k] = output
 
                 output_array.append(output_vector)
+
             logger.info(f"Example: {example_id} - doc #{i} (generated passages)")
             logger.info(f"Final model output: {output_vector}") 
 
@@ -204,7 +215,7 @@ def main():
             "passages": passages_set,
             "ratings": output_array
         })
-        del output, output_array, output_vector, prompt
+        del output, output_array
 
     # Save the result
     output_dir = os.path.join(args.output_dir, args.tag)
