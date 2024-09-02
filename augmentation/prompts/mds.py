@@ -59,24 +59,23 @@ def prompt_rating_gen(INST="", Q="", C="", PREFIX="Rating:"):
     return p
 
 # Below are task-aware query for different task
-###################################
-# prompt for report generation    #
-###################################
-template_request = "Instruction: {INST}\n\nReport: {DEMO_R}\n\n{PREFIX}: <r>{DEMO_RR}</r>\n\nReport: {D}\n\n{PREFIX}: <r>"
+############################################
+# prompt for topic generation (report gen) #
+############################################
+template_request = "Instruction: {INST}\n\n{DEMO}\n\nReport: {D}\n\n{PREFIX}"
 # instruction_request (the one with questions) = "Create a general statement of report request that corresponds to the questions the user is about to ask. Given that a report generation system has produced the passage below, write a report request statement of approximately 30 words. Write the statement within <r> and </r> tags."
-instruction_request = "Create a general statement of report request that corresponds to given report. Write a report request statement of approximately 50 words within <r> and </r> tags."
-# demo_background = "I work for a news magazine that reports on a wide variety of topics of interest to the general reading public. Against the backdrop of recent reports from the U.S. military of their encounters with UFOs, I feel there is an interest in these phenomena and whether anyone in the U.S. is studying them. The histories, costs, goals, and results of such studies are bound to be of interest to our readership."
-demo_request = "Please produce a report on investigations within the United States in either the public or private sector into Unidentified Flying Objects (UFOs). The report should cover only investigative activities into still unidentified phenomena, and not the phenomena themselves. It should include information on the histories, costs, goals, and results of such investigations."
-demo_report = "Whether you dismiss UFOs as a fantasy or believe that extraterrestrials are visiting the Earth and flying rings around our most sophisticated aircraft, the U.S. government has been taking them seriously for quite some time. “Project Blue Book”, commissioned by the U.S. Air Force, studied reports of “flying saucers” but closed down in 1969 with a conclusion that they did not present a threat to the country. As the years went by UFO reports continued to be made and from 2007 to 2012 the Aerospace Threat Identification Program, set up under the sponsorship of Senator Harry Reid, spent $22 million looking into the issue once again. Later, the Pentagon formed a “working group for the study of unidentified aerial phenomena”. This study, staffed with personnel from Naval Intelligence, was not aimed at finding extraterrestrials, but rather at determining whether craft were being flown by potential U.S. opponents with new technologies. In June, 2022, in a report issued by the Office of the Director for National Intelligence and based on the observations made by members of the U.S. military and intelligence  from 2004 to 2021 it was stated that at that time there was, with one exception, not enough information to explain the 144 cases of what were renamed as “Unidentified Aerial Phenomena” examined."
-def prompt_request_gen(INST="", DEMO_R=demo_report, DEMO_RR=demo_request, D="", PREFIX="Statement of report request"):
+instruction_request = "Create a statement of report request that corresponds to given report. Write the report request of approximately 50 words within <r> and </r> tags."
+demo_input = "Please produce a report on investigations within the United States in either the public or private sector into Unidentified Flying Objects (UFOs). The report should cover only investigative activities into still unidentified phenomena, and not the phenomena themselves. It should include information on the histories, costs, goals, and results of such investigations."
+demo_output = "Whether you dismiss UFOs as a fantasy or believe that extraterrestrials are visiting the Earth and flying rings around our most sophisticated aircraft, the U.S. government has been taking them seriously for quite some time. “Project Blue Book”, commissioned by the U.S. Air Force, studied reports of “flying saucers” but closed down in 1969 with a conclusion that they did not present a threat to the country. As the years went by UFO reports continued to be made and from 2007 to 2012 the Aerospace Threat Identification Program, set up under the sponsorship of Senator Harry Reid, spent $22 million looking into the issue once again. Later, the Pentagon formed a “working group for the study of unidentified aerial phenomena”. This study, staffed with personnel from Naval Intelligence, was not aimed at finding extraterrestrials, but rather at determining whether craft were being flown by potential U.S. opponents with new technologies. In June, 2022, in a report issued by the Office of the Director for National Intelligence and based on the observations made by members of the U.S. military and intelligence  from 2004 to 2021 it was stated that at that time there was, with one exception, not enough information to explain the 144 cases of what were renamed as “Unidentified Aerial Phenomena” examined."
+demo = f"Report: {demo_output}\n\nReport request: <r>{demo_input}</r>" # an in-context example
+
+def prompt_topic_gen(INST="", DEMO=demo, D="", PREFIX="Report request: <r>"):
     p = template_request
     p = p.replace("{INST}", INST).strip()
-    p = p.replace("{DEMO_R}", DEMO_R).strip()
-    p = p.replace("{DEMO_RR}", DEMO_RR).strip()
+    p = p.replace("{DEMO}", DEMO).strip()
     p = p.replace("{D}", D)
     p = p.replace("{PREFIX}", PREFIX).strip()
     return p
-
 
 def apply_docs_prompt(doc_items, ndoc=None, field='text'):
     p = ""

@@ -164,7 +164,7 @@ def main():
         output = llm.generate(prompt, 
             max_tokens=min(args.max_new_tokens, args.max_length-prompt_len)
         )
-        
+
         ## postprocess for consistent format
         output = output.replace("<|im_end|>", "").rstrip()
         if output.endswith("End."):

@@ -3,84 +3,215 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-import re
 import os
+import re
 import argparse
 import json
 import numpy as np
+from copy import copy
+import random
+from collections import defaultdict
 from tqdm import tqdm
+from glob import glob
+from pyserini.search.lucene import LuceneSearcher
 
-def normalize(string):
-    string = string.strip()
-    pattern = re.compile(r"\s+")
-    string = re.sub(pattern, ' ', string).strip()
-    pattern = re.compile(r"\n")
-    string = re.sub(pattern, ' ', string).strip()
-    pattern = re.compile("</s>")
-    string = re.sub(pattern, '|||||', string).strip() # align seperation 
-    return string.split('|||||')
+from utils import replace_tags
 
-def normalize_text(string):
-    string = string.strip()
-    pattern = re.compile(r"\n")
-    string = re.sub(pattern, ' ', string).strip()
-    pattern = re.compile(r"\s+")
-    string = re.sub(pattern, ' ', string).strip()
-    return string
+def deduplicate_and_sort(doc_ids):
+    doc_ids = list(set(doc_ids))
+    sorted(doc_ids)
+    return doc_ids
+
+def check_newinfo(values, new_values):
+    mask = (values == 0)
+    if (new_values[mask] > values[mask]).any():
+        return True, values + new_values
+    else:
+        return False, values
+
+def get_i_doc(i, psgs_bound):
+    for i_doc, bound in enumerate(psgs_bound):
+        if i in bound:
+            return i_doc
+
+def binarize_amount_rerank_greedy(item_, threshold=3):
+    """
+    P = binarize(ratings)
+    P = rerank(P) ...based on amount then maximum
+    P = greedy_select(P)
+    """
+    item = copy(item_)
+    example_id = item['example_id']
+    ratings = np.array(item['ratings'])
+    passages = item['passages']
+
+    # binariz
+    scores = np.zeros_like(ratings).astype(int)
+    scores[(ratings >= threshold)] = 1
+    answerable = (scores.sum(0) != 0)
+
+    # navigate doc-index of passages (i.e., doci: [psg-i to psg-k])
+    end = np.cumsum([len(psgs) for psgs in passages])
+    start = np.append([0], end)[:(-1)]
+    psgs_in_doc = [range(s, e) for (s, e) in zip(start, end)]
+
+    # greedily include 'useful' passage, iteratively 
+    ids = {"documents": [], "useful_passages": [], "redundant_passages": []}
+    values = np.zeros(scores.shape[1])
+    while (values[answerable]==0).sum() > 0:
+
+        ## rerank the passages with binary + max
+        mask = (values == 0)
+        bin_counts = np.where(ratings[:, mask] >= threshold, 1, 0).sum(-1) 
+        max_scores = np.where(ratings[:, mask] > 0, 1, 0).max(-1)
+        psg_scores = bin_counts * 1 + max_scores * 0.1
+        i = psg_scores.argmax()
+
+        flag, values = check_newinfo(values, scores[i])
+        i_doc = get_i_doc(i, psgs_in_doc)
+
+        # [TODO] the input ranking should match real conditions
+        if flag:
+            if i_doc not in ids["documents"]:
+                ids["documents"].append(i_doc)
+            ids["useful_passages"].append( (i_doc, i) )
+
+            # *strictly*/general duplication (raw rating / binarized rating)
+            for j, r in enumerate(ratings):
+                if (i_doc, j) in ids['redundant_passages']:
+                    continue
+                if (ratings[i] > r).all():
+                    ids['redundant_passages'].append( (i_doc, j) )
+
+    # logger.info(f"Number of #p-: {example_id} {len(ids['redundant_passages'])}")
+
+    return ids
+
+# def minmax_rerank_greedy(scores):
+# def reciprocal_rerank_greedy(scores):
+def mine_distractor(topic, searcher, k=10, max_docs_return=3, ignored_prefix=""):
+
+    hits = searcher.search(topic, k)
+    to_return = []
+    for h in hits:
+        if ignored_prefix not in h.docid:
+            hit_doc_id = h.docid.split(":")[0]
+            if hit_doc_id not in to_return:
+                to_return.append(hit_doc_id)
+            if len(to_return) >= max_docs_return:
+                return to_return
+    return []
+
+def load_topic(path, n=1):
+    data = json.load(open(path, 'r'))
+
+    topics = []
+    for i, item in enumerate(data['data']):
+        example_id = item['example_id']
+        outputs = item['output'].strip().split('</r>')[:n]
+        outputs = [replace_tags(o, 'r').strip() for o in outputs][0]
+        topics.append({"example_id": example_id, "texts": outputs})
+    return topics
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_file", type=str, default=None, help="File path to the generated directory.")
-    parser.add_argument("--output_dir", type=str, default=None, help="Dir to the output collection.")
+    parser = argparse.ArgumentParser(description="Print output")
+    parser.add_argument("--shard_dir", type=str, default=None)
+    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--dataset_file", type=str, default=None, help="File path to the file with generated texts.")
+
+    # metadata of the training data
+    parser.add_argument("--n_max_distractors", type=int, default=None)
+    parser.add_argument("--threshold", type=float, default=1)
+    parser.add_argument("--doc_lucene_index", type=str)
     args = parser.parse_args()
 
-    # questions = []
-    passages = {}
-    documents = {}
+    os.makedirs(args.output_dir, exist_ok=True) 
+    qrels_writer = {
+        'documents': open(os.path.join(args.output_dir, 'qrels_oracle_adhoc_dr.txt'), 'w'),
+        'passages': open(os.path.join(args.output_dir, 'qrels_oracle_adhoc_pr.txt'), 'w'),
+        'contexts': open(os.path.join(args.output_dir, 'qrels_oracle_context_pr.txt'), 'w')
+    }
 
-    # Load context
+    searcher = None
+    if args.n_max_distractors > 0:
+        searcher = LuceneSearcher(args.doc_lucene_index)
+
+    # load topic 
+    topics_all = []
+    logger.info("load topics ...") 
+    for file in tqdm(glob(os.path.join(args.shard_dir, "topics-gen/*.json"))):
+        topic = load_topic(file)
+        topics_all += topic
+    topics_all = {r['example_id']: r['texts'] for r in topics_all}
+
+    # load contexts 
     with open(args.dataset_file, 'r') as f:
-        for line in tqdm(f, "load contexts"):
+        for line in f:
             data = json.loads(line.strip())
             example_id = data['example_id']
-            documents_ = data['documents']
-            passages_ = data['passages']
-            n_passages = sum(len(plist) for plist in passages_)
-            questions, ratings = data['questions'], data['ratings']
-            ratings = np.array(ratings)
+            passages = [p for psgs in data['passages'] for p in psgs]
+            n_passages = len(passages)
+            questions = data['questions']
+            ratings = np.array(data['ratings'])
 
             # sanity check
             if ratings.shape != (n_passages, len(questions)):
-                logging.warnings(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
+                logger.warnings(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
                 continue
 
-            if len(documents_) != len(passages_):
-                logging.warnings(f"example id: {example_id} has inconsistent number of context: #d: {len(documents_)} #p: {len(passages_)}.")
-                continue
+            ## step1: greedily selection
+            ids = binarize_amount_rerank_greedy(data, threshold=3)
 
-            for i, plist in enumerate(passages_):
+            ## step2: re-organize oracle and positive document/passage ids
+            oracle_docids = [f"{example_id}:{i}" for i in ids['documents']]
+            oracle_pos_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['useful_passages']]
+            oracle_neg_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['redundant_passages']]
+            oracle_neutral_psgids = []
+            j = 0
+            for i, plist in enumerate(data['passages']):
                 docid = f"{example_id}:{i}"
-                documents[docid] = documents_[i]
-
-                j = 0
                 for passage in plist:
-                    psg_id = f"{docid}#{j}"
-                    passages[psg_id] = passage
+                    psgid = f"{docid}#{j}"
+                    ## oracle psgids = positive && negatuve && neutral
+                    if psgid not in oracle_pos_psgids+oracle_neg_psgids:
+                        oracle_neutral_psgids.append(f"{docid}#{j}")
                     j += 1
 
-    # Save the context
-    output_dir = os.path.join(args.output_dir, 'documents')
-    os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"docs.jsonl")
-    with open(output_file, 'w') as f:
-        for docid, document in documents.items():
-            f.write(json.dumps({"id": docid, "contents": document}, ensure_ascii=False)+'\n')
+            ## step2: mine distractor (if needed)
+            distractor_docids = []
+            if searcher is not None:
+                dis_example_doc_ids = mine_distractor(
+                    topic=topics_all[data['example_id']],
+                    searcher=searcher, 
+                    k=10,
+                    max_docs_return=args.n_max_distractors,
+                    ignored_prefix=data['example_id']
+                )
+                distractor_docids += dis_example_doc_ids
 
-    output_dir = os.path.join(args.output_dir, 'passages')
-    os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"psgs.jsonl")
-    with open(output_file, 'w') as f:
-        for psgid, passage in passages.items():
-            f.write(json.dumps({"id": psgid, "contents": passage}, ensure_ascii=False)+'\n')
+            logger.info(f"#D*: {len(oracle_docids)} | #D-: {len(distractor_docids)}")
+            logger.info(f"#P*: {n_passages} | #P*_+: {len(oracle_pos_psgids)} | #P*_-: {len(oracle_neg_psgids)}")
 
-    print("done")
+            ## step3 : creating qrels [TODO] ad-hoc passage ranking
+            for docid in oracle_docids:
+                qrels_writer['documents'].write(f"{data['example_id']} 0 {docid} 1\n")
+
+            for docid in distractor_docids:
+                qrels_writer['documents'].write(f"{data['example_id']} 0 {docid} 0\n")
+
+            for psgid in oracle_pos_psgids:
+                qrels_writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                qrels_writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
+
+            for psgid in oracle_neg_psgids:
+                qrels_writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                qrels_writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n") # less useful contexts (no more answerable questions)
+
+            for psgid in oracle_neutral_psgids:
+                qrels_writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                qrels_writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") # useless contexts (no higher-rated answerable questions)
+
+    for key in qrels_writer:
+        qrels_writer[key].close()
+
+    print('done')
