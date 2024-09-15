@@ -37,22 +37,17 @@ def load_question(path, n=10):
             questions.append({"example_id": example_id, "texts": outputs})
     return questions
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
     parser.add_argument("--shard_dir", type=str, help="Path to pre-generated results")
     parser.add_argument("--context_file", type=str, help="Path to retrieval-augmented context")
     parser.add_argument("--output_file", type=str, help="Path to judged (graded) retrieval-augmented context")
+    parser.add_argument("--topics", type=str, help="Path to topic query")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
     parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
-
-    # ICL setting
-    # parser.add_argument("--ndoc", type=int, help="Number of documents, the exact number will go in decoder.")
-    # parser.add_argument("--ndoc_pool", type=None, help="Number of documents pool. None will be the same as ndoc")
-    # parser.add_argument("--shot", type=int, help="Number of ICL demonstrations")
-    # parser.add_argument("--ndoc_in_demo", type=int, default=None, help="When using --fewer_doc_in_demo, use this to designate how many docs in demo")
-    # parser.add_argument("--seed", type=int, default=42, help="Seed for the random number generator")
 
     # Model and name
     # parser.add_argument("--dataset_name", type=str, help="Name of the dataset (for saving)")
@@ -64,8 +59,8 @@ def main():
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
     parser.add_argument("--top_p", type=float, default=1.0, help="Nucleus sampling top-p")
-    parser.add_argument("--max_new_tokens", type=int, default=64, help="Max number of new tokens to generate in one step")
-    parser.add_argument("--max_length", type=int, default=2048, help="Max length the model can take. Should set properly wrt the model to avoid position overflow.")
+    parser.add_argument("--max_new_tokens", type=int, default=5, help="Max number of new tokens to generate in one step")
+    parser.add_argument("--max_length", type=int, default=16, help="Max length the model can take. Should set properly wrt the model to avoid position overflow.")
     parser.add_argument("--num_samples", type=int, default=1, help="Sample multiple answers.")
 
     # Use summarization/extraction of the documents
@@ -95,6 +90,13 @@ def main():
         questions_all += questions
     questions_all = {q['example_id']: q['texts'] for q in questions_all}
 
+    logger.info("load topics...") 
+    topics_all = {}
+    with open(args.topics) as f:
+        for line in f:
+            id, text = line.split('\t')
+            topics_all[id] = text.strip()
+
     logger.info("load retrieval context...") 
     context_type = ""
     contexts_all = {}
@@ -112,8 +114,9 @@ def main():
     logger.info("Generating output...")
 
     ratings = []
-    for t, example_id in enumerate(tqdm(contexts_all)):
+    for t, example_id in enumerate(tqdm(topics_all)):
         questions = questions_all[example_id]
+        topic = topics_all[example_id]
         context_list = contexts_all[example_id]
         if len(context_list) == 0:
             continue
@@ -150,18 +153,18 @@ def main():
             output_array.append(output_vector)
 
         ## aggregate the ratings of retrieval context
-        output_array = np.max(output_array, axis=0)
+        output_array = np.max(output_array, axis=0).tolist()
         logger.info(f"Example: {example_id} | #Context: {i+1}")
         logger.info(f"Final model output: {output_vector}") 
 
         ratings.append({
             "example_id": example_id,
+            "topic": topic, 
             "questions": questions,
-            "contexts": context_list,
             "judge_LLM": args.model_tag,
+            "contexts": context_list,
             "judgements": output_array
         })
-        del output, output_array
 
     # Save the result
     output_file = args.output_file.replace('outputs', 'judgements')

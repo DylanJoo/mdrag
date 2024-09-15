@@ -14,13 +14,16 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-for context_file in outputs/mdrag-5K-train*.jsonl; do
+# oracle (1) report (2) all passages (3) minimum passages (4) documents
+split=train
+for context_file in outputs/mdrag-5K-${split}*oracle-report.jsonl; do
     python3 augmentation/judge_ratings.py \
         --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
         --config configs/mds-decontextualize.llama3-8b-chat.yaml \
         --context_file ${context_file} \
+        --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
         --output_file ${context_file/outputs/judgements} \
-        --split train \
+        --split ${split} \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
         --model_tag metallama3.1-8b \
         --load_mode vllm \

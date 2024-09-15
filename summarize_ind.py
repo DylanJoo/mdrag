@@ -26,13 +26,13 @@ def truncate_and_concat(texts, tokenizer, max_length=512):
     else:
         return tokenizer.convert_tokens_to_string(tokenized[:(max_length-6)])
 
-def load_rewrite(file):
-    data_items = json.load(open(file))
-    rewritten_queries = {}
-    for item in data_items:
-        id = str(item['requestid']) + item['colectionids'].replace('neuclir/1/', '')[:2]
-        rewritten_queries[id] = item['rewrite']
-    return rewritten_queries
+# def load_rewrite(file):
+#     data_items = json.load(open(file))
+#     rewritten_queries = {}
+#     for item in data_items:
+#         id = str(item['requestid']) + item['colectionids'].replace('neuclir/1/', '')[:2]
+#         rewritten_queries[id] = item['rewrite']
+#     return rewritten_queries
 
 def main():
     parser = argparse.ArgumentParser()
@@ -65,6 +65,7 @@ def main():
             for line in f:
                 id, text = line.split('\t')
                 topics[id] = text.strip()
+
     # if args.rewritten:
     #     topics = load_rewrite(args.eval_rewrite_file)
 

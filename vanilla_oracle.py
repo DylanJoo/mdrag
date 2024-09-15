@@ -50,12 +50,12 @@ def maybe_chunking(dlist, n=1024):
     else:
         return dlist
 
-def load_qrel(path):
+def load_qrel(path, threshold=0):
     data = defaultdict(list)
     with open(path) as f:
         for line in f:
             item = line.strip().split()
-            if int(item[3]) >= 1:
+            if int(item[3]) >= threshold:
                 data[item[0]].append( item[2] )
     return data
 
@@ -125,9 +125,10 @@ def main():
         if 'passages' in args.tag:
             item = {
                 'example_id': example_id, 
-                'type': f'vanilla-oracle-documents',
+                'type': f'vanilla-oracle-passages',
                 'output': [passages[id] for id in qrels[example_id] if passages[id] is not None]
             }
+
         writer.write(json.dumps(item, ensure_ascii=False)+'\n')
 
     writer.close()

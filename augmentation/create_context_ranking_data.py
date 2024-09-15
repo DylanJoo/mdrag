@@ -23,9 +23,12 @@ def deduplicate_and_sort(doc_ids):
     return doc_ids
 
 def check_newinfo(values, new_values):
+    """
+    return the value with added or the original value
+    """
     mask = (values == 0)
     if (new_values[mask] > values[mask]).any():
-        return True, values + new_values
+        return True, np.max( [values, new_values], 0)
     else:
         return False, values
 
@@ -76,14 +79,28 @@ def binarize_amount_rerank_greedy(item_, threshold=3):
                 ids["documents"].append(i_doc)
             ids["useful_passages"].append( (i_doc, i) )
 
-            # *strictly*/general duplication (raw rating / binarized rating)
-            for j, r in enumerate(ratings):
-                if (i_doc, j) in ids['redundant_passages']:
-                    continue
-                if (ratings[i] > r).all():
-                    ids['redundant_passages'].append( (i_doc, j) )
+            # Type1: *hard*/strict duplication (raw rating with separated)
+            # for j, r in enumerate(ratings):
+            #     if (i_doc, j) in ids['redundant_passages']:
+            #         continue
+            #     if (i_doc, j) in ids['useful_passages']:
+            #         continue
+            #     if (ratings[i] > r).all():
+            #         ids['redundant_passages'].append( (i_doc, j) )
 
-    # logger.info(f"Number of #p-: {example_id} {len(ids['redundant_passages'])}")
+    if len(ids['useful_passages']) == 0:
+        return False
+
+    # Type2: *soft*/general duplication (binarized rating with aggregated)
+    max_rating = np.max(ratings[[i for (i_doc, i) in ids['useful_passages']]], axis=0)
+    for j, r in enumerate(ratings):
+        i_doc = get_i_doc(j, psgs_in_doc)
+        if (i_doc, j) in ids['redundant_passages']:
+            continue
+        if (i_doc, j) in ids['useful_passages']:
+            continue
+        if (max_rating >= r).all():
+            ids['redundant_passages'].append( (i_doc, j) )
 
     return ids
 
@@ -163,6 +180,8 @@ if __name__ == "__main__":
 
             ## step1: greedily selection
             ids = binarize_amount_rerank_greedy(data, threshold=3)
+            if ids is False:
+                continue ### skip this example if no positive passages...
 
             ## step2: re-organize oracle and positive document/passage ids
             oracle_docids = [f"{example_id}:{i}" for i in ids['documents']]
@@ -208,13 +227,15 @@ if __name__ == "__main__":
                 writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
                 writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
 
-            for psgid in oracle_neg_psgids:
-                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n") # less useful contexts (no more answerable questions)
-
+            # less useful contexts (no more answerable questions)
             for psgid in oracle_neutral_psgids:
                 writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") # useless contexts (no higher-rated answerable questions)
+                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n")
+
+            # useless contexts (no higher-rated answerable questions)
+            for psgid in oracle_neg_psgids:
+                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") 
 
     for key in writer:
         writer[key].close()
