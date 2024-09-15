@@ -25,7 +25,7 @@ for split in test;do
         --topk 10 \
         --max_length 1024 \
         --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-        --collection ${DATASET_DIR}/mdrag-5K/passages/${split}_psgs.jsonl \
+        --collection ${DATASET_DIR}/mdrag-5K/passages \
         --run retrieval/baseline.bm25.mdrag-5K-${split}.passages.run \
         --output_file outputs/mdrag-5K-${split}-bm25-top10-recomp.jsonl \
         --truncate

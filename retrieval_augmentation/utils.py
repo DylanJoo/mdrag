@@ -8,6 +8,7 @@ import re
 import os
 import string
 import time
+from glob import glob
 from collections import defaultdict
 
 def update_tokenizer(tokenizer, max_n_contexts=10):
@@ -24,10 +25,17 @@ def batch_iterator(iterable, size=1, return_index=False):
 
 def load_collection(path):
     data = defaultdict(lambda: None)
-    with open(path) as f:
-        for line in f:
-            item = json.loads(line.strip())
-            data[item['id']] = item['contents']
+
+    if os.path.isdir(path):
+        paths = glob(os.path.join(path, f"*.jsonl"))
+    else:
+        paths = [path]
+
+    for path in paths:
+        with open(path) as f:
+            for line in f:
+                item = json.loads(line.strip())
+                data[item['id']] = item['contents']
     return data
 
 def load_run(path):
