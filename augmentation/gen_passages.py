@@ -54,7 +54,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
     parser.add_argument("--shard", type=int, default=0, help="the n-th shard")
-    parser.add_argument("--shard_size", type=int, default=200, help="size of one shard")
+    parser.add_argument("--shard_size", type=int, default=None, help="size of one shard")
     parser.add_argument("--output_dir", type=str, help="directory for the output result")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
@@ -143,6 +143,9 @@ def main():
         np.random.seed(args.seed)
         ids = np.random.choice(len(dataset), args.quick_test, replace=False)
         dataset = [dataset[int(idx)] for idx in ids]
+    else:
+        dataset = [dataset[idx] for idx in range(5000)]
+        ids = list(range(len(dataset)))
 
     # Generate the prompt
     n_total = 0
@@ -172,8 +175,8 @@ def main():
 
     # Start generation
     logger.info("Generating output...")
-    start = args.shard * args.shard_size
-    end = start + args.shard_size
+    start = args.shard * (args.shard_size or 0)
+    end = start + (args.shard_size or len(data))
     if start >= len(data):
         exit(0) # finished
 

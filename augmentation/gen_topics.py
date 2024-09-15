@@ -126,6 +126,9 @@ def main():
         np.random.seed(args.seed)
         ids = np.random.choice(len(dataset), args.quick_test, replace=False)
         dataset = [dataset[int(idx)] for idx in ids]
+    else:
+        dataset = [dataset[idx] for idx in range(5000)]
+        ids = list(range(len(dataset)))
 
     # Generate the prompt
     n_total = 0
@@ -147,7 +150,6 @@ def main():
             'shard_id': f"{args.shard}-{idx}", 
             'full_text': summary_text,
             'prompt': prompt,
-
         })
         n_total += 1
 
@@ -155,8 +157,8 @@ def main():
 
     # Start generation
     logger.info("Generating output...")
-    start = args.shard * args.shard_size
-    end = start + args.shard_size
+    start = args.shard * (args.shard_size or 0)
+    end = start + (args.shard_size or len(data))
     if start >= len(data):
         exit(0) # finished
 

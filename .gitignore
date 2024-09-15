@@ -1,3 +1,9 @@
 **/archived/
 **/__pycache__/
 logs/
+
+retrieval/*run
+outputs/*jsonl
+judgements/*jsonl
+
+**swp

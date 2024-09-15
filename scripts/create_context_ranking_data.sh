@@ -14,11 +14,13 @@ conda activate rag
 cd ~/mdrag
 
 # flatten generated passages
-python3 augmentation/create_context_ranking_data.py \
-    --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-train.jsonl \
-    --output_dir ${DATASET_DIR}/mdrag-5K/ranking \
-    --n_max_distractors 5 \
-    --threshold 3 \
-    --doc_lucene_index ${INDEX_DIR}/mdrag-5K-documents.lucene
-
+for split in train test;do
+    python3 augmentation/create_context_ranking_data.py \
+        --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
+        --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+        --split ${split} \
+        --output_dir ${DATASET_DIR}/mdrag-5K/ranking \
+        --n_max_distractors 5 \
+        --threshold 3 \
+        --doc_lucene_index ${INDEX_DIR}/mdrag-5K-documents.lucene
+done

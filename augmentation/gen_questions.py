@@ -126,6 +126,9 @@ def main():
         np.random.seed(args.seed)
         ids = np.random.choice(len(dataset), args.quick_test, replace=False)
         dataset = [dataset[int(idx)] for idx in ids]
+    else:
+        dataset = [dataset[idx] for idx in range(5000)]
+        ids = list(range(len(dataset)))
 
     # Generate the prompt
     n_total = 0
@@ -152,13 +155,13 @@ def main():
 
     # Start generation
     logger.info("Generating output...")
-    start = args.shard * args.shard_size
-    end = start + args.shard_size
+    start = args.shard * (args.shard_size or 0)
+    end = start + (args.shard_size or len(data))
     if start >= len(data):
         exit(0) # finished
 
     data = data[start:end]
-    for idx, item in enumerate(tqdm(data, "augmenting: ", total=len(data))):
+    for idx, item in enumerate(tqdm(data, "augmenting ", total=len(data))):
         prompt = item['prompt']
         prompt_len = len(llm.tokenizer.tokenize(prompt))
         output = llm.generate(prompt, 

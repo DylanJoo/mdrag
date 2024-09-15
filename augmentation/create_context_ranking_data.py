@@ -118,6 +118,8 @@ if __name__ == "__main__":
     parser.add_argument("--shard_dir", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--dataset_file", type=str, default=None, help="File path to the file with generated texts.")
+    #
+    parser.add_argument("--split", type=str, default='train')
 
     # metadata of the training data
     parser.add_argument("--n_max_distractors", type=int, default=None)
@@ -126,10 +128,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True) 
-    qrels_writer = {
-        'documents': open(os.path.join(args.output_dir, 'qrels_oracle_adhoc_dr.txt'), 'w'),
-        'passages': open(os.path.join(args.output_dir, 'qrels_oracle_adhoc_pr.txt'), 'w'),
-        'contexts': open(os.path.join(args.output_dir, 'qrels_oracle_context_pr.txt'), 'w')
+    writer = {
+        'topics': open(os.path.join(args.output_dir, f'{args.split}_topics_report_request.tsv'), 'w'),
+        'documents': open(os.path.join(args.output_dir, f'{args.split}_qrels_oracle_adhoc_dr.txt'), 'w'),
+        'passages': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_adhoc_pr.txt'), 'w'),
+        'contexts': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_context_pr.txt'), 'w')
     }
 
     searcher = None
@@ -139,12 +142,11 @@ if __name__ == "__main__":
     # load topic 
     topics_all = []
     logger.info("load topics ...") 
-    for file in tqdm(glob(os.path.join(args.shard_dir, "topics-gen/*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*{args.split}*.json"))):
         topic = load_topic(file)
         topics_all += topic
     topics_all = {r['example_id']: r['texts'] for r in topics_all}
 
-    # load contexts 
     with open(args.dataset_file, 'r') as f:
         for line in f:
             data = json.loads(line.strip())
@@ -192,26 +194,29 @@ if __name__ == "__main__":
             logger.info(f"#D*: {len(oracle_docids)} | #D-: {len(distractor_docids)}")
             logger.info(f"#P*: {n_passages} | #P*_+: {len(oracle_pos_psgids)} | #P*_-: {len(oracle_neg_psgids)}")
 
-            ## step3 : creating qrels [TODO] ad-hoc passage ranking
+            ## step3a : creating topics [TODO] ad-hoc passage ranking
+            writer['topics'].write(f"{data['example_id']}\t{topics_all[data['example_id']]}\n")
+
+            ## step3b : creating qrels [TODO] ad-hoc passage ranking
             for docid in oracle_docids:
-                qrels_writer['documents'].write(f"{data['example_id']} 0 {docid} 1\n")
+                writer['documents'].write(f"{data['example_id']} 0 {docid} 1\n")
 
             for docid in distractor_docids:
-                qrels_writer['documents'].write(f"{data['example_id']} 0 {docid} 0\n")
+                writer['documents'].write(f"{data['example_id']} 0 {docid} 0\n")
 
             for psgid in oracle_pos_psgids:
-                qrels_writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                qrels_writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
+                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
 
             for psgid in oracle_neg_psgids:
-                qrels_writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                qrels_writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n") # less useful contexts (no more answerable questions)
+                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n") # less useful contexts (no more answerable questions)
 
             for psgid in oracle_neutral_psgids:
-                qrels_writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                qrels_writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") # useless contexts (no higher-rated answerable questions)
+                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") # useless contexts (no higher-rated answerable questions)
 
-    for key in qrels_writer:
-        qrels_writer[key].close()
+    for key in writer:
+        writer[key].close()
 
     print('done')

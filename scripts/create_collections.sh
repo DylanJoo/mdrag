@@ -14,21 +14,8 @@ conda activate rag
 cd ~/mdrag
 
 # flatten generated passages
-python3 augmentation/create_collections.py \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-train.jsonl \
-    --output_dir ${DATASET_DIR}/mdrag-5K \
-
-# indexing
-python -m pyserini.index.lucene \
-    --collection JsonCollection \
-    --input  ${DATASET_DIR}/mdrag-5K/documents \
-    --index ${INDEX_DIR}/mdrag-5K-documents.lucene \
-    --generator DefaultLuceneDocumentGenerator \
-    --threads 8
-
-python -m pyserini.index.lucene \
-    --collection JsonCollection \
-    --input  ${DATASET_DIR}/mdrag-5K/passages \
-    --index ${INDEX_DIR}/mdrag-5K-passages.lucene \
-    --generator DefaultLuceneDocumentGenerator \
-    --threads 8
+for split in train test;do
+    python3 augmentation/create_collections.py \
+        --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+        --output_dir ${DATASET_DIR}/mdrag-5K
+done

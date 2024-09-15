@@ -143,14 +143,14 @@ def main():
 
     logger.info("load questions...") 
     questions_all = []
-    for file in tqdm(glob(os.path.join(args.shard_dir, "ques-gen/*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"ques-gen/*{args.split}*.json"))):
         questions = load_question(file)
         questions_all += questions
     questions_all = {q['example_id']: q['texts'] for q in questions_all}
 
     logger.info("load passages (and documents)...") 
     passages_all = []
-    for file in tqdm(glob(os.path.join(args.shard_dir, "psgs-gen/*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"psgs-gen/*{args.split}*.json"))):
         passages = load_passages(file)
         passages_all += passages
     documents_all = {p['example_id']: p['docs_full_texts'] for p in passages_all}

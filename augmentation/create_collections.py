@@ -34,7 +34,11 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default=None, help="Dir to the output collection.")
     args = parser.parse_args()
 
-    # questions = []
+    split = 'train'
+    if 'test' in args.dataset_file:
+        split = 'test'
+    if 'validation' in args.dataset_file:
+        split = 'validation'
     passages = {}
     documents = {}
 
@@ -71,14 +75,14 @@ if __name__ == "__main__":
     # Save the context
     output_dir = os.path.join(args.output_dir, 'documents')
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"docs.jsonl")
+    output_file = os.path.join(output_dir, f"{split}_docs.jsonl")
     with open(output_file, 'w') as f:
         for docid, document in documents.items():
             f.write(json.dumps({"id": docid, "contents": document}, ensure_ascii=False)+'\n')
 
     output_dir = os.path.join(args.output_dir, 'passages')
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"psgs.jsonl")
+    output_file = os.path.join(output_dir, f"{split}_psgs.jsonl")
     with open(output_file, 'w') as f:
         for psgid, passage in passages.items():
             f.write(json.dumps({"id": psgid, "contents": passage}, ensure_ascii=False)+'\n')
