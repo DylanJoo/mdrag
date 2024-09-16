@@ -1,12 +1,11 @@
 #!/bin/sh
-# The following lines instruct Slurm to allocate one GPU.
-#SBATCH --job-name=rating-judge
-#SBATCH --partition gpu
-#SBATCH --gres=gpu:nvidia_l40:1
-#SBATCH --mem=32G
+# The following lines instruct Slurm 
+#SBATCH --job-name=eval-know
+#SBATCH --cpus-per-task=16
 #SBATCH --nodes=1
+#SBATCH --mem=16G
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=120:00:00
+#SBATCH --time=01:00:00
 #SBATCH --output=logs/%x-%j.out
 
 # Set-up the environment.
@@ -14,21 +13,34 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-# oracle (1) report (2) all passages (3) minimum passages (4) documents
-split=train
-for context_file in outputs/mdrag-5K-${split}*oracle-report.jsonl; do
-    python3 augmentation/judge_ratings.py \
-        --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
-        --config configs/mds-decontextualize.llama3-8b-chat.yaml \
-        --context_file ${context_file} \
-        --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-        --output_file ${context_file/outputs/judgements} \
-        --split ${split} \
-        --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --model_tag metallama3.1-8b \
-        --load_mode vllm \
-        --temperature 0.7 \
-        --top_p 0.9 \
-        --max_new_tokens 5 \
-        --ampere_gpu
-done
+split=test
+# oracle-report
+python3 eval/judge.py \
+    --judgement_file judgements/mdrag-5K-${split}-oracle-report.jsonl \
+    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --threshold 3 \
+    --rel_threshold 2 \
+    --tag report
+
+# oracle-passages
+python3 eval/judge.py \
+    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --threshold 3 \
+    --rel_threshold 2 \
+    --tag passages
+
+# oracle-passages-min
+python3 eval/judge.py \
+    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --threshold 3 \
+    --rel_threshold 2 \
+    --tag passages-min
