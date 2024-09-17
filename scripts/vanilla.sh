@@ -15,11 +15,13 @@ cd ~/mdrag
 
 # Start the experiment.
 for split in test;do
-    python3 vanilla.py \
-        --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-        --collection ${DATASET_DIR}/mdrag-5K/passages \
-        --run retrieval/baseline.bm25.mdrag-5K-${split}.passages.run \
-        --topk 10 \
-        --output_file outputs/mdrag-5K-${split}-bm25-top10-vanilla.jsonl
+    for retriever in contriever;do
+        python3 vanilla.py \
+            --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+            --collection ${DATASET_DIR}/mdrag-5K/passages \
+            --run retrieval/baseline.${retriever}.mdrag-5K-${split}.passages.run \
+            --topk 10 \
+            --output_file outputs/mdrag-5K-${split}-${retriever}-top10-vanilla.jsonl
+    done
 done
 

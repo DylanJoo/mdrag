@@ -15,10 +15,11 @@ conda activate rag
 cd ~/mdrag
 
 split=test
-augmentation=vanilla
+retriever=contriever
+augmentation=*
 
 # rating
-for context_file in outputs/mdrag-5K-${split}-bm25-top10-${augmentation}.jsonl; do
+for context_file in outputs/mdrag-5K-${split}-${retriever}-top10-${augmentation}.jsonl; do
     python3 augmentation/judge_ratings.py \
         --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
         --config configs/mds-decontextualize.llama3-8b-chat.yaml \
