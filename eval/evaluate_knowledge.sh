@@ -14,33 +14,53 @@ conda activate rag
 cd ~/mdrag
 
 split=test
-# oracle-report
-python3 eval/judge.py \
-    --judgement_file judgements/mdrag-5K-${split}-oracle-report.jsonl \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --rel_threshold 2 \
-    --tag report
+# # oracle-report
+# python3 eval/judge.py \
+#     --judgement_file judgements/mdrag-5K-${split}-oracle-report.jsonl \
+#     --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+#     --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+#     --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --threshold 3 \
+#     --rel_threshold 2 \
+#     --tag report
+#
+# # oracle-passages
+# python3 eval/judge.py \
+#     --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+#     --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+#     --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --threshold 3 \
+#     --rel_threshold 2 \
+#     --tag passages
+#
+# # oracle-passages-min
+# python3 eval/judge.py \
+#     --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+#     --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+#     --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --threshold 3 \
+#     --rel_threshold 2 \
+#     --tag passages-min
 
-# oracle-passages
+# bm25 top10 bartcnndm
 python3 eval/judge.py \
+    --judgement_file judgements/mdrag-5K-${split}-bm25-top10-bartsum.jsonl \
     --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
     --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
     --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
     --threshold 3 \
-    --rel_threshold 2 \
-    --tag passages
+    --tag bm25-top10-bartsum
 
-# oracle-passages-min
+# bm25 top10 bartcnndm
 python3 eval/judge.py \
+    --judgement_file judgements/mdrag-5K-${split}-bm25-top10-recomp.jsonl \
     --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
     --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
     --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
     --threshold 3 \
-    --rel_threshold 2 \
-    --tag passages-min
+    --tag bm25-top10-recomp

@@ -2,7 +2,7 @@
 # The following lines instruct Slurm to allocate one GPU.
 #SBATCH --job-name=rating-judge
 #SBATCH --partition gpu
-#SBATCH --gres=gpu:nvidia_l40:1
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
 #SBATCH --mem=32G
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -15,9 +15,10 @@ conda activate rag
 cd ~/mdrag
 
 split=test
+augmentation=vanilla
 
 # rating
-for context_file in outputs/mdrag-5K-${split}-bm25-top10-bartsum.jsonl; do
+for context_file in outputs/mdrag-5K-${split}-bm25-top10-${augmentation}.jsonl; do
     python3 augmentation/judge_ratings.py \
         --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
         --config configs/mds-decontextualize.llama3-8b-chat.yaml \

@@ -111,22 +111,22 @@ def main():
         if 'report' in args.tag:
             item = {
                 'example_id': example_id, 
-                'type': f'vanilla-oracle-report (md-summary)',
+                'type': f'oracle-report (md-summary)',
                 'output': normalize_text(item['summary'])
             }
 
         if 'documents' in args.tag:
             item = {
                 'example_id': example_id, 
-                'type': f'vanilla-oracle-documents',
+                'type': f'oracle-documents',
                 'output': item['document']
             }
 
         if 'passages' in args.tag:
             item = {
                 'example_id': example_id, 
-                'type': f'vanilla-oracle-passages',
-                'output': [passages[id] for id in qrels[example_id] if passages[id] is not None]
+                'type': f'oracle-passages',
+                'output': [passages[id] for id in qrels[example_id]]
             }
 
         writer.write(json.dumps(item, ensure_ascii=False)+'\n')

@@ -35,7 +35,7 @@ cd ~/mdrag
 # python3 vanilla_oracle.py \
 #     --multi_news_file ${DATASET_DIR}/multi_news \
 #     --qrel ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-#     --collection ${DATASET_DIR}/mdrag-5K/passages/${split}_psgs.jsonl \
+#     --collection ${DATASET_DIR}/mdrag-5K/passages \
 #     --split ${split} \
 #     --quick_test 5000 \
 #     --output_file outputs/mdrag-5K-${split}-oracle-passages.jsonl \
@@ -60,7 +60,7 @@ python3 vanilla_oracle.py \
 python3 vanilla_oracle.py \
     --multi_news_file ${DATASET_DIR}/multi_news \
     --qrel ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --collection ${DATASET_DIR}/mdrag-5K/passages/${split}_psgs.jsonl \
+    --collection ${DATASET_DIR}/mdrag-5K/passages \
     --split ${split} \
     --output_file outputs/mdrag-5K-${split}-oracle-passages.jsonl \
     --tag passages

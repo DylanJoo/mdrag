@@ -29,6 +29,7 @@ python -m pyserini.encode \
 
 # contriever search
 for split in train test;do
+    # scoring
     python3 -m pyserini.search.faiss \
         --threads 16 --batch-size 64 \
         --encoder-class contriever \
@@ -36,5 +37,7 @@ for split in train test;do
         --index ${INDEX_DIR}/mdrag-5K-passages.contriever \
         --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
         --output retrieval/baseline.contriever.mdrag-5K-${split}.passages.run \
-        --hits 100 
+        --hits 200 
+
+    # max-p
 done
