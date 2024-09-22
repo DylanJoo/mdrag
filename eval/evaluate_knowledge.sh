@@ -45,52 +45,27 @@ split=test
 #     --rel_threshold 2 \
 #     --tag passages-min
 
-# bm25 top10 vanilla
-python3 eval/judge.py \
-    --judgement_file judgements/mdrag-5K-${split}-bm25-top10-vanilla.jsonl \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag bm25-top10-vanilla
+# bm25 top10 vanilla/bartcnndm/recomp
+for aug_method in vanilla bartsum recomp;do
+    python3 eval/judge.py \
+        --judgement_file judgements/mdrag-5K-${split}-bm25-top10-${aug_method}.jsonl \
+        --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+        --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+        --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+        --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+        --threshold 3 \
+        --tag bm25-top10-${aug_method}
+done
 
-# bm25 top10 bartcnndm
-python3 eval/judge.py \
-    --judgement_file judgements/mdrag-5K-${split}-bm25-top10-bartsum.jsonl \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag bm25-top10-bartsum
+# contriever top10 vanilla
+for aug_method in vanilla bartsum recomp;do
+    python3 eval/judge.py \
+        --judgement_file judgements/mdrag-5K-${split}-contriever-top10-${aug_method}.jsonl \
+        --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
+        --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
+        --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
+        --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+        --threshold 3 \
+        --tag contriever-top10-${aug_method}
+done
 
-# bm25 top10 recomp
-python3 eval/judge.py \
-    --judgement_file judgements/mdrag-5K-${split}-bm25-top10-recomp.jsonl \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag bm25-top10-recomp
-
-# contriever top10 bartsum
-python3 eval/judge.py \
-    --judgement_file judgements/mdrag-5K-${split}-contriever-top10-bartsum.jsonl \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag contriever-top10-bartsum
-
-# contriever top10 recomp
-python3 eval/judge.py \
-    --judgement_file judgements/mdrag-5K-${split}-contriever-top10-recomp.jsonl \
-    --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-    --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag contriever-top10-recomp

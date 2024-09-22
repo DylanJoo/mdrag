@@ -6,14 +6,12 @@ logger.setLevel(logging.INFO)
 import re
 import os
 import yaml
-import torch
 import argparse
 import json
 import numpy as np
 from tqdm import tqdm
 from glob import glob
 
-from llm.base import LLM, vLLM
 from prompts.mds import *
 
 def replace_tags(sent, tag='q'):
@@ -91,7 +89,7 @@ def main():
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
     parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
-    parser.add_argument("--load_mode", type=str, default='no', help="Model to use")
+    parser.add_argument("--load_mode", type=str, default='no', help="['vllm', '8bit', '4bit', 'api']")
 
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
@@ -133,12 +131,14 @@ def main():
         
     # Load the model or setup the API
     if args.load_mode == 'vllm':
+        from llm.base import vLLM
         llm = vLLM(args)
+    elif args.load_mode == "api":
+        from llm.requester import API
+        llm = API(args)
     else:
+        from llm.base import LLM
         llm = LLM(args)
-    
-    # Load training data
-    # Load evaluation data
     # Sample quick test
 
     logger.info("load questions...") 
@@ -189,10 +189,13 @@ def main():
                         C=passage,
                         PREFIX="Rating:"
                     )
-                    output = llm.generate(prompt, 
-                        max_tokens=args.max_new_tokens,
-                        min_tokens=1
-                    )
+                    if args.load_mode == 'api':
+                        output = llm.generate(prompt, max_tokens=args.max_new_tokens)
+                    else:
+                        output = llm.generate(prompt, 
+                            max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                            min_tokens=1
+                        )
                     output = output.replace("<|im_end|>", "").rstrip()
                     if output.endswith("End."):
                         output = output[:-len("End.")]

@@ -6,13 +6,11 @@ logger.setLevel(logging.INFO)
 import re
 import os
 import yaml
-import torch
 import argparse
 import json
 import numpy as np
 from tqdm import tqdm
 
-from llm.base import LLM, vLLM
 from prompts.mds import *
 
 def normalize(string):
@@ -74,7 +72,7 @@ def main():
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
     parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
-    parser.add_argument("--load_mode", type=str, default='no', help="Model to use")
+    parser.add_argument("--load_mode", type=str, default='no', help="['vllm', '8bit', '4bit', 'api']")
 
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
@@ -116,8 +114,13 @@ def main():
         
     # Load the model or setup the API
     if args.load_mode == 'vllm':
+        from llm.base import vLLM
         llm = vLLM(args)
+    elif args.load_mode == "api":
+        from llm.requester import API
+        llm = API(args)
     else:
+        from llm.base import LLM
         llm = LLM(args)
     
     # Generate prompts
@@ -129,6 +132,7 @@ def main():
     # Load evaluation data
     from datasets import load_from_disk, concatenate_datasets
     multi_news = load_from_disk(args.multi_news_file)[args.split]
+
     multi_news = multi_news.map(lambda x: 
         {"document": normalize(x['document']), 'mds-source': 'multi_news'}
     )
@@ -144,12 +148,16 @@ def main():
         ids = np.random.choice(len(dataset), args.quick_test, replace=False)
         dataset = [dataset[int(idx)] for idx in ids]
     else:
-        dataset = [dataset[idx] for idx in range(5000)]
+        if args.split == 'train':
+            dataset = [dataset[idx] for idx in range(len(dataset))]
+        else:
+            dataset = [dataset[idx] for idx in range(5000)]
         ids = list(range(len(dataset)))
 
     # Generate the prompt
     n_total = 0
     data = []
+    logger.info(f"Length of dataset: {len(dataset)}") 
     logger.info("Generating prompts...") 
     for idx, item in enumerate(tqdm(dataset)):
         document_list = item['document']
@@ -171,7 +179,7 @@ def main():
             'docs': {'full_text': document_list, 'prompt': prompt_list }
         })
         n_total += len(document_list)
-    logger.info(f"Done prompt preparation. Total number of prompts: {n_total}")
+    logger.info(f"Done prompt preparation. Total number of prompts: {len(data)} | {n_total}")
 
     # Start generation
     logger.info("Generating output...")
@@ -185,10 +193,14 @@ def main():
         output_array = []
 
         for prompt in item['docs']['prompt']:
-            prompt_len = len(llm.tokenizer.tokenize(prompt))
-            output = llm.generate(prompt, 
-                max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
-            )
+            if args.load_mode == 'api':
+                output = llm.generate(prompt, max_tokens=args.max_new_tokens)
+                prompt_len = llm.prompt_len
+            else:
+                prompt_len = len(llm.tokenizer.tokenize(prompt))
+                output = llm.generate(prompt, 
+                    max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                )
 
             ## postprocess for consistent format
             output = output.replace("<|im_end|>", "").rstrip()
