@@ -15,34 +15,33 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-# for shard_i in $(seq 0 24);do
-#     python3 augmentation/gen_topics.py \
-#         --shard $shard_i --shard_size 200 \
-#         --config configs/mds-decontextualize.llama3-8b-chat.yaml \
-#         --split train \
-#         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-#         --model_tag metallama3.1-8b \
-#         --tag topics-gen \
-#         --load_mode vllm \
-#         --temperature 0.7 \
-#         --max_new_tokens 128 \
-#         --quick_test 5000 \
-#         --output_dir ${DATASET_DIR}/mdrag-5K/shard_data/ \
-#         --ampere_gpu 
-# done
-
-# test set 
 for shard_i in $(seq 0 24);do
     python3 augmentation/gen_topics.py \
-        --shard $shard_i --shard_size 200 \
-        --config configs/mds-decontextualize.llama3-8b-chat.yaml \
-        --split test \
+        --shard $shard_i --shard_size 1000 \
+        --config configs/mds-decontextualize.llama3-8b.yaml \
+        --split train \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
         --model_tag metallama3.1-8b \
         --tag topics-gen \
         --load_mode vllm \
         --temperature 0.7 \
         --max_new_tokens 128 \
-        --output_dir ${DATASET_DIR}/mdrag-5K/shard_data/ \
+        --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
         --ampere_gpu 
 done
+
+# test set 
+# for shard_i in $(seq 0 4);do
+#     python3 augmentation/gen_topics.py \
+#         --shard $shard_i --shard_size 2000 \
+#         --config configs/mds-decontextualize.llama3-8b.yaml \
+#         --split test \
+#         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+#         --model_tag metallama3.1-8b \
+#         --tag topics-gen \
+#         --load_mode vllm \
+#         --temperature 0.7 \
+#         --max_new_tokens 128 \
+#         --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
+#         --ampere_gpu 
+# done

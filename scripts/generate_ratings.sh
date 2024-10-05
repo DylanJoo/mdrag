@@ -14,9 +14,9 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-for split in train test;do
+for split in train;do
     python3 augmentation/gen_ratings.py \
-        --shard_dir ${DATASET_DIR}/mdrag-5K/shard_data \
+        --shard_dir ${DATASET_DIR}/mdrag/shard_data \
         --config configs/mds-decontextualize.llama3-8b-chat.yaml \
         --split ${split} \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
@@ -26,6 +26,6 @@ for split in train test;do
         --temperature 0.7 \
         --top_p 0.9 \
         --max_new_tokens 5 \
-        --output_dir ${DATASET_DIR}/mdrag-5K/ \
+        --output_dir ${DATASET_DIR}/mdrag/ \
         --ampere_gpu
 done
