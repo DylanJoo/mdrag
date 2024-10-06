@@ -1,6 +1,4 @@
 ---
-multi_news_file: /home/dju/datasets/multi_news
-wcep_10_file: /home/dju/datasets/wcep-10
 shot: 0
 ndoc: 0
 ndoc_in_demo: 0

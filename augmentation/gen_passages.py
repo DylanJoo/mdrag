@@ -13,6 +13,15 @@ from tqdm import tqdm
 
 from prompts.mds import *
 
+def normalize_list(string_list):
+    for i in range(len(string_list)):
+        string_list[i] = normalize_text(string_list[i])
+    return string_list
+
+def flatten_and_normalize(string_list):
+    string = " ".join(string_list)
+    return normalize_text(string)
+
 def normalize(string):
     string = string.strip()
     pattern = re.compile(r"\s+")
@@ -56,7 +65,8 @@ def main():
     parser.add_argument("--output_dir", type=str, help="directory for the output result")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
-    parser.add_argument("--multi_news_file", type=str, help="Path to multi-news")
+    parser.add_argument("--multi_news_file", type=str, default=None)
+    parser.add_argument("--duc04_file", type=str, default=None)
     parser.add_argument("--quick_test", type=int, default=None, help="Quickly test a few examples")
     parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
 
@@ -130,17 +140,32 @@ def main():
     train_data = None
 
     # Load evaluation data
-    from datasets import load_from_disk, concatenate_datasets
-    multi_news = load_from_disk(args.multi_news_file)[args.split]
+    from datasets import load_from_disk
+    if args.multi_news_file is not None:
+        multi_news = load_from_disk(args.multi_news_file)[args.split]
 
-    multi_news = multi_news.map(lambda x: 
-        {"document": normalize(x['document']), 'mds-source': 'multi_news'}
-    )
-    multi_news = multi_news.filter(lambda x: len(x['document']) >=2 )
-    multi_news = multi_news.map(
-        lambda x: {"document": maybe_chunking(x['document'], n=1024)}
-    )
-    dataset = multi_news
+        multi_news = multi_news.map(lambda x: {
+            "document": normalize(x['document']), 
+            'mds-source': 'multi_news'
+        })
+        multi_news = multi_news.filter(lambda x: len(x['document']) >=2 )
+        multi_news = multi_news.map(lambda x: {
+            "document": maybe_chunking(x['document'], n=1024)
+        })
+        dataset = multi_news
+
+    if args.duc04_file is not None:
+        duc04 = load_from_disk(args.duc04_file)['train']
+        duc04 = duc04.map(lambda x: {
+            "document": normalize_list(x['context']),
+            "summary": flatten_and_normalize(x['summary']),
+            'mds-source': 'duc04'
+        })
+        duc04 = duc04.filter(lambda x: len(x['document']) >=2 )
+        duc04 = duc04.map(lambda x: {
+            "document": maybe_chunking(x['document'], n=1024)
+        })
+        dataset = duc04
 
     # Sample quick test
     if args.quick_test is not None:
@@ -151,7 +176,7 @@ def main():
         if args.split == 'train':
             dataset = [dataset[idx] for idx in range(len(dataset))]
         else:
-            dataset = [dataset[idx] for idx in range(5000)]
+            dataset = [dataset[idx] for idx in range(min(5000, len(dataset)))]
         ids = list(range(len(dataset)))
 
     # Generate the prompt
@@ -160,7 +185,7 @@ def main():
     logger.info(f"Length of dataset: {len(dataset)}") 
     logger.info("Generating prompts...") 
     for idx, item in enumerate(tqdm(dataset)):
-        document_list = item['document']
+        document_list = item['document'] # [NOTE] the documents may be shorter and more than the original document.
 
         prompt_list = []
         for document in document_list:

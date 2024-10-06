@@ -10,24 +10,6 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-def normalize(string):
-    string = string.strip()
-    pattern = re.compile(r"\s+")
-    string = re.sub(pattern, ' ', string).strip()
-    pattern = re.compile(r"\n")
-    string = re.sub(pattern, ' ', string).strip()
-    pattern = re.compile("</s>")
-    string = re.sub(pattern, '|||||', string).strip() # align seperation 
-    return string.split('|||||')
-
-def normalize_text(string):
-    string = string.strip()
-    pattern = re.compile(r"\n")
-    string = re.sub(pattern, ' ', string).strip()
-    pattern = re.compile(r"\s+")
-    string = re.sub(pattern, ' ', string).strip()
-    return string
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_file", type=str, default=None, help="File path to the file with generated texts.")
@@ -37,8 +19,8 @@ if __name__ == "__main__":
     split = 'train'
     if 'test' in args.dataset_file:
         split = 'test'
-    if 'validation' in args.dataset_file:
-        split = 'validation'
+    if 'testb' in args.dataset_file:
+        split = 'testb'
     passages = {}
     documents = {}
 
