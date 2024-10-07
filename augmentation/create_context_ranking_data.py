@@ -159,7 +159,7 @@ if __name__ == "__main__":
     # load topic 
     topics_all = []
     logger.info("load topics ...") 
-    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*{args.split}*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*-{args.split}-*.json"))):
         topic = load_topic(file)
         topics_all += topic
     topics_all = {r['example_id']: r['texts'] for r in topics_all}

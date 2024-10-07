@@ -6,14 +6,12 @@ logger.setLevel(logging.INFO)
 import re
 import os
 import yaml
-import torch
 import argparse
 import json
 import numpy as np
 from tqdm import tqdm
 from glob import glob
 
-from llm.base import LLM, vLLM
 from prompts.mds import *
 
 def replace_tags(sent, tag='q'):
@@ -21,6 +19,10 @@ def replace_tags(sent, tag='q'):
         sent = re.sub(r"\<q\>|\<\/q\>", "\n", sent)
     if tag == 'p':
         sent = re.sub(r"\<p\>|\<\/p\>", "\n", sent)
+
+    pattern = re.compile(r'^\d+\s*[-\\.)]?\s+')
+    sent = re.sub(pattern, '', sent)
+
     pattern = re.compile(r"\n+")
     sent = re.sub(pattern, '\n', sent)
     return sent
@@ -78,6 +80,8 @@ def main():
 
     # Evaluation file is a json file that contains a list of item, each of which contains
     parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
+    parser.add_argument("--shard", type=int, default=None)
+    parser.add_argument("--shard_size", type=int, default=1000)
 
     # ICL setting
     parser.add_argument("--ndoc", type=int, help="Number of documents, the exact number will go in decoder.")
@@ -91,7 +95,7 @@ def main():
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
     parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
-    parser.add_argument("--load_mode", type=str, default='no', help="Model to use")
+    parser.add_argument("--load_mode", type=str, default='no', help="['vllm', '8bit', '4bit', 'api']")
 
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
@@ -102,6 +106,9 @@ def main():
 
     # Use summarization/extraction of the documents
     parser.add_argument("--ampere_gpu", default=False, action='store_true')
+    parser.add_argument("--port", default='8000', type=str)
+    parser.add_argument("--num_gpus", default=1, type=int)
+    parser.add_argument("--n_questions", default=10, type=int)
 
     # Load config
     args = parser.parse_args()
@@ -133,24 +140,26 @@ def main():
         
     # Load the model or setup the API
     if args.load_mode == 'vllm':
+        from llm.base import vLLM
         llm = vLLM(args)
+    elif args.load_mode == "api":
+        from llm.requester import API
+        llm = API(args)
     else:
+        from llm.base import LLM
         llm = LLM(args)
-    
-    # Load training data
-    # Load evaluation data
-    # Sample quick test
+
 
     logger.info("load questions...") 
     questions_all = []
-    for file in tqdm(glob(os.path.join(args.shard_dir, f"ques-gen/*{args.split}*.json"))):
-        questions = load_question(file)
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"ques-gen/*-{args.split}-*.json"))):
+        questions = load_question(file, args.n_questions)
         questions_all += questions
     questions_all = {q['example_id']: q['texts'] for q in questions_all}
 
     logger.info("load passages (and documents)...") 
     passages_all = []
-    for file in tqdm(glob(os.path.join(args.shard_dir, f"psgs-gen/*{args.split}*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"psgs-gen/*-{args.split}-*.json"))):
         passages = load_passages(file)
         passages_all += passages
     documents_all = {p['example_id']: p['docs_full_texts'] for p in passages_all}
@@ -167,8 +176,17 @@ def main():
     # Start generation
     logger.info("Generating output...")
 
+    # Sharding
+    if args.shard is not None:
+        start = args.shard * args.shard_size
+        end = min( (args.shard+1) * args.shard_size, len(questions_all) )
+        ids = list(questions_all.keys())
+        ids = ids[start:end]
+    else:
+        ids = list(questions_all.keys())
+
     ratings = []
-    for t, example_id in enumerate(tqdm(questions_all)):
+    for example_id in tqdm(ids):
         questions = questions_all[example_id]
         documents = documents_all[example_id]
         passages_set = passages_all[example_id]
@@ -189,10 +207,15 @@ def main():
                         C=passage,
                         PREFIX="Rating:"
                     )
-                    output = llm.generate(prompt, 
-                        max_tokens=args.max_new_tokens,
-                        min_tokens=1
-                    )
+                    if args.load_mode == 'api':
+                        output = llm.generate(prompt, max_tokens=args.max_new_tokens)
+                        prompt_len = llm.prompt_len
+                    else:
+                        prompt_len = len(llm.tokenizer.tokenize(prompt))
+                        output = llm.generate(prompt, 
+                            max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                            min_tokens=1
+                        )
                     output = output.replace("<|im_end|>", "").rstrip()
                     if output.endswith("End."):
                         output = output[:-len("End.")]
@@ -221,8 +244,10 @@ def main():
     output_dir = os.path.join(args.output_dir, args.tag)
     os.makedirs(output_dir, exist_ok=True)
 
-    output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}.jsonl")
-
+    if args.shard is not None:
+        output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}-{args.shard}.jsonl")
+    else:
+        output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}.jsonl")
     with open(output_file, "w") as f:
         for rating in ratings:
             f.write(json.dumps(rating)+'\n')

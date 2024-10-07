@@ -1,9 +1,14 @@
 **/archived/
 **/__pycache__/
 logs/
+*logs*/
 
 retrieval/*run
 outputs/*jsonl
 judgements/*jsonl
+testing/*
 
 **swp
+*errr
+*out
+core

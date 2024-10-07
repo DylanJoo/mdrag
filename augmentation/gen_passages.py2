@@ -13,15 +13,6 @@ from tqdm import tqdm
 
 from prompts.mds import *
 
-def normalize_list(string_list):
-    for i in range(len(string_list)):
-        string_list[i] = normalize_text(string_list[i])
-    return string_list
-
-def flatten_and_normalize(string_list):
-    string = " ".join(string_list)
-    return normalize_text(string)
-
 def normalize(string):
     string = string.strip()
     pattern = re.compile(r"\s+")
@@ -40,6 +31,23 @@ def normalize_text(string):
     string = re.sub(pattern, ' ', string).strip()
     return string
 
+def maybe_chunking(dlist, n=1024):
+    overlength = [(i, len(d.split()) > n) for i, d in enumerate(dlist)]
+
+    if any([o for _, o in overlength]):
+        to_return = []
+        for i, do_chunk in overlength:
+            if do_chunk:
+                words = dlist[i].split()
+                while len(words) > 0:
+                    to_return.append(" ".join(words[:512]))
+                    words = words[512:]
+            else:
+                to_return.append(dlist[i])
+        return to_return
+    else:
+        return dlist
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
@@ -48,8 +56,7 @@ def main():
     parser.add_argument("--output_dir", type=str, help="directory for the output result")
 
     # Evaluation file is a json file that contains a list of item, each of which contains
-    parser.add_argument("--multi_news_file", type=str, default=None)
-    parser.add_argument("--duc04_file", type=str, default=None)
+    parser.add_argument("--multi_news_file", type=str, help="Path to multi-news")
     parser.add_argument("--quick_test", type=int, default=None, help="Quickly test a few examples")
     parser.add_argument("--split", type=str, default='train', help="Original split of datasets")
 
@@ -65,7 +72,7 @@ def main():
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
     parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
-    parser.add_argument("--load_mode", type=str, default='no', help="['vllm', '8bit', '4bit', 'api']")
+    parser.add_argument("--load_mode", type=str, default='no', help="['vllm', '8bit', '4bit']")
 
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
@@ -125,7 +132,7 @@ def main():
     train_data = None
 
     # Load evaluation data
-    from datasets import load_from_disk, concatenate_datasets
+    from datasets import load_from_disk
     if args.multi_news_file is not None:
         multi_news = load_from_disk(args.multi_news_file)[args.split]
 
@@ -134,9 +141,9 @@ def main():
             'mds-source': 'multi_news'
         })
         multi_news = multi_news.filter(lambda x: len(x['document']) >=2 )
-        # multi_news = multi_news.map(lambda x: {
-        #     "document": maybe_chunking(x['document'], n=1024)
-        # })
+        multi_news = multi_news.map(lambda x: {
+            "document": maybe_chunking(x['document'], n=1024)
+        })
         dataset = multi_news
 
     if args.duc04_file is not None:
@@ -147,9 +154,9 @@ def main():
             'mds-source': 'duc04'
         })
         duc04 = duc04.filter(lambda x: len(x['document']) >=2 )
-        # duc04 = duc04.map(lambda x: {
-        #     "document": maybe_chunking(x['document'], n=1024)
-        # })
+        duc04 = duc04.map(lambda x: {
+            "document": maybe_chunking(x['document'], n=1024)
+        })
         dataset = duc04
 
     # Sample quick test
@@ -171,20 +178,22 @@ def main():
     logger.info("Generating prompts...") 
     for idx, item in enumerate(tqdm(dataset)):
         document_list = item['document']
-        summary_text = normalize_text(item['summary'])
 
-        prompt = prompt_topic_gen(
-            INST=instruction_request,
-            DEMO=demo,
-            D=summary_text,
-            PREFIX="Report request: <r>"
-        )
+        prompt_list = []
+        for document in document_list:
+            prompt = prompt_passage_gen(
+                INST=instruction_passage,
+                D=document,
+                PREFIX="Passages:\n<p>"
+            )
+            prompt_list.append(prompt)
 
         data.append({
             'example_id': f"{item['mds-source']}-{args.split}-{ids[idx]}", 
             'shard_id': f"{args.shard}-{idx}", 
-            'full_text': summary_text,
-            'prompt': prompt,
+            'summary': normalize_text(item['summary']),
+            'ndoc': len(document_list),
+            'docs': {'full_text': document_list, 'prompt': prompt_list }
         })
         n_total += len(document_list)
     logger.info(f"Done prompt preparation. Total number of prompts: {len(data)} | {n_total}")
@@ -198,38 +207,40 @@ def main():
 
     data = data[start:end]
     for idx, item in enumerate(tqdm(data, "augmenting", total=len(data))):
-        prompt = item['prompt']
-        if args.load_mode == 'api':
-            output = llm.generate(prompt, max_tokens=args.max_new_tokens)
-            prompt_len = llm.prompt_len
-        else:
-            prompt_len = len(llm.tokenizer.tokenize(prompt))
-            output = llm.generate(prompt, 
-                max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
-            )
+        output_array = []
 
-        ## postprocess for consistent format
-        output = output.replace("<|im_end|>", "").rstrip()
-        if output.endswith("End."):
-            output = output[:-len("End.")]
+        for prompt in item['docs']['prompt']:
+            if args.load_mode == 'api':
+                output = llm.generate(prompt, max_tokens=args.max_new_tokens)
+                prompt_len = llm.prompt_len
+            else:
+                prompt_len = len(llm.tokenizer.tokenize(prompt))
+                output = llm.generate(prompt, 
+                    max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                )
 
-        output = output.split('Note:')[0]
-        output = output.split('Report:')[0]
-        output = output.split('Instruction:')[0]
+            ## postprocess for consistent format
+            output = output.replace("<|im_end|>", "").rstrip()
+            if output.endswith("End."):
+                output = output[:-len("End.")]
 
-        if output == "":
-            logger.info(f"Original raw output: {output}")
-            output = llm.generate(prompt, 
-                max_tokens=min(args.max_new_tokens, args.max_length-prompt_len), 
-                min_tokens=16
-            )
+            output = output.split('Note: ')[0]
+
+            if output == "":
+                logger.info(f"Original raw output: {output}")
+                output = llm.generate(prompt, 
+                    max_tokens=min(args.max_new_tokens, args.max_length-prompt_len), 
+                    min_tokens=64
+                )
+            output_array.append(output)
 
         logger.info(f"Example: {item['example_id']} -- {item['shard_id']}")
         logger.info(f"prompt text (length={prompt_len}): {prompt}")
-        logger.info(f"Final model output: {output}") 
-        item['output'] = output 
+        logger.info(f"Final model output: {output_array[-1]}") 
+        logger.info(f"Number of documents {item['ndoc']}") 
+        item['docs']['output'] = output_array
         if idx != 0:
-            item['prompt'] = ""
+            item['docs']['prompt'] = ""
 
     # Save the result
     data = {"args": args.__dict__, "data": data}

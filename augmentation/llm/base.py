@@ -9,7 +9,6 @@ from tqdm import tqdm
 import time
 import string
 import re
-from nltk import sent_tokenize
 
 from vllm import LLM as v_llm 
 from vllm import SamplingParams
@@ -20,8 +19,9 @@ class vLLM:
     def __init__(self, args):
         self.model = v_llm(
             args.model, 
-            dtype='half',
-            enforce_eager=True
+            dtype='bfloat16',
+            enforce_eager=True,
+            pipeline_parallel_size=(args.num_gpus or 1)
         )
         self.tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
         self.tokenizer.padding_side = "left"
