@@ -134,7 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Print output")
     parser.add_argument("--shard_dir", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default=None)
-    parser.add_argument("--dataset_file", type=str, default=None, help="File path to the file with generated texts.")
+    parser.add_argument("--dataset_dir", type=str, default=None)
     #
     parser.add_argument("--split", type=str, default='train')
 
@@ -159,84 +159,86 @@ if __name__ == "__main__":
     # load topic 
     topics_all = []
     logger.info("load topics ...") 
-    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*{args.split}*.json"))):
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*-{args.split}-*.json"))):
         topic = load_topic(file)
         topics_all += topic
     topics_all = {r['example_id']: r['texts'] for r in topics_all}
 
-    with open(args.dataset_file, 'r') as f:
-        for line in f:
-            data = json.loads(line.strip())
-            example_id = data['example_id']
-            passages = [p for psgs in data['passages'] for p in psgs]
-            n_passages = len(passages)
-            questions = data['questions']
-            ratings = np.array(data['ratings'])
+    for file in glob(os.path.join(args.dataset_dir, f"*-{args.split}-*")):
+        with open(file, 'r') as f:
+            for line in f:
+                data = json.loads(line.strip())
+                example_id = data['example_id']
+                passages = [p for psgs in data['passages'] for p in psgs]
+                n_passages = len(passages)
+                questions = data['questions']
+                ratings = np.array(data['ratings'])
 
-            # sanity check
-            if ratings.shape != (n_passages, len(questions)):
-                logger.warnings(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
-                continue
+                # sanity check
+                if ratings.shape != (n_passages, len(questions)):
+                    logger.warnings(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
+                    continue
 
-            ## step1: greedily selection
-            ids = binarize_amount_rerank_greedy(data, threshold=3)
-            if ids is False:
-                continue ### skip this example if no positive passages...
+                ## step1: greedily selection
+                ids = binarize_amount_rerank_greedy(data, threshold=3)
+                if ids is False:
+                    continue ### skip this example if no positive passages...
 
-            ## step2: re-organize oracle and positive document/passage ids
-            oracle_docids = [f"{example_id}:{i}" for i in ids['documents']]
-            oracle_pos_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['useful_passages']]
-            oracle_neg_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['redundant_passages']]
-            oracle_neutral_psgids = []
-            j = 0
-            for i, plist in enumerate(data['passages']):
-                docid = f"{example_id}:{i}"
-                for passage in plist:
-                    psgid = f"{docid}#{j}"
-                    ## oracle psgids = positive && negatuve && neutral
-                    if psgid not in oracle_pos_psgids+oracle_neg_psgids:
-                        oracle_neutral_psgids.append(f"{docid}#{j}")
-                    j += 1
+                ## step2: re-organize oracle and positive document/passage ids
+                oracle_docids = [f"{example_id}:{i}" for i in ids['documents']]
+                oracle_pos_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['useful_passages']]
+                oracle_neg_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['redundant_passages']]
+                oracle_neutral_psgids = []
+                j = 0
+                for i, plist in enumerate(data['passages']):
+                    docid = f"{example_id}:{i}"
+                    for passage in plist:
+                        psgid = f"{docid}#{j}"
+                        ## oracle psgids = positive && negatuve && neutral
+                        if psgid not in oracle_pos_psgids+oracle_neg_psgids:
+                            oracle_neutral_psgids.append(f"{docid}#{j}")
+                        j += 1
 
-            ## step2: mine distractor (if needed)
-            distractor_docids = []
-            if searcher is not None:
-                dis_example_doc_ids = mine_distractor(
-                    topic=topics_all[data['example_id']],
-                    searcher=searcher, 
-                    k=10,
-                    max_docs_return=args.n_max_distractors,
-                    ignored_prefix=data['example_id']
-                )
-                distractor_docids += dis_example_doc_ids
+                ## step2: mine distractor (if needed)
+                distractor_docids = []
+                if searcher is not None:
+                    dis_example_doc_ids = mine_distractor(
+                        topic=topics_all[data['example_id']],
+                        searcher=searcher, 
+                        k=10,
+                        max_docs_return=args.n_max_distractors,
+                        ignored_prefix=data['example_id']
+                    )
+                    distractor_docids += dis_example_doc_ids
 
-            logger.info(f"#D*: {len(oracle_docids)} | #D-: {len(distractor_docids)}")
-            logger.info(f"#P*: {n_passages} | #P*_+: {len(oracle_pos_psgids)} | #P*_-: {len(oracle_neg_psgids)}")
+                logger.info(f"#D*: {len(oracle_docids)} | #D-: {len(distractor_docids)}")
+                logger.info(f"#P*: {n_passages} | #P*_+: {len(oracle_pos_psgids)} | #P*_-: {len(oracle_neg_psgids)}")
 
-            ## step3a : creating topics [TODO] ad-hoc passage ranking
-            writer['topics'].write(f"{data['example_id']}\t{topics_all[data['example_id']]}\n")
+                ## step3a : creating topics [TODO] ad-hoc passage ranking
+                writer['topics'].write(f"{data['example_id']}\t{topics_all[data['example_id']]}\n")
 
-            ## step3b : creating qrels [TODO] ad-hoc passage ranking
-            for docid in oracle_docids:
-                writer['documents'].write(f"{data['example_id']} 0 {docid} 1\n")
+                ## step3b : creating qrels [TODO] ad-hoc passage ranking
+                for docid in oracle_docids:
+                    writer['documents'].write(f"{data['example_id']} 0 {docid} 1\n")
 
-            for docid in distractor_docids:
-                writer['documents'].write(f"{data['example_id']} 0 {docid} 0\n")
+                for docid in distractor_docids:
+                    writer['documents'].write(f"{data['example_id']} 0 {docid} 0\n")
 
-            for psgid in oracle_pos_psgids:
-                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
+                for psgid in oracle_pos_psgids:
+                    writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
 
-            # less useful contexts (no more answerable questions)
-            for psgid in oracle_neutral_psgids:
-                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                # less useful contexts (no more answerable questions)
+                for psgid in oracle_neutral_psgids:
+                    writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n")
 
-            # useless contexts (no higher-rated answerable questions)
-            for psgid in oracle_neg_psgids:
-                writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") 
+                # useless contexts (no higher-rated answerable questions)
+                for psgid in oracle_neg_psgids:
+                    writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") 
 
+    # write
     for key in writer:
         writer[key].close()
 

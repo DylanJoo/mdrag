@@ -14,8 +14,14 @@ conda activate rag
 cd ~/mdrag
 
 # flatten generated passages
-for split in train test;do
-    python3 augmentation/create_collections.py \
-        --dataset_file ${DATASET_DIR}/mdrag-5K/ratings-gen/metallama3.1-8b-${split}.jsonl \
-        --output_dir ${DATASET_DIR}/mdrag-5K
-done
+## Test: Multi-News 
+python3 augmentation/create_collections.py \
+    --dataset_dir ${DATASET_DIR}/mdrag/shard_data/ratings-gen \
+    --split test \
+    --output_dir ${DATASET_DIR}/mdrag
+
+## Testb: TREC DUC 04
+python3 augmentation/create_collections.py \
+    --dataset_dir ${DATASET_DIR}/mdrag/shard_data/ratings-gen \
+    --split testb \
+    --output_dir ${DATASET_DIR}/mdrag

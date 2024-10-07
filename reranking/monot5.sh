@@ -13,16 +13,19 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
+# cross-encoder/ms-marco-MiniLM-L-12-v2
+# castorini/monot5-3b-msmarco-10k
+model_class=monoT5
 python -m reranking \
-    --model_class monoT5 \
-    --reranker_name_or_path castorini/monot5-3b-msmarco-10k \
-    --tokenizer_name castorini/monot5-3b-msmarco-10k \
+    --model_class ${model_class} \
+    --reranker_name_or_path cross-encoder/ms-marco-MiniLM-L-12-v2 \
+    --tokenizer_name cross-encoder/ms-marco-MiniLM-L-12-v2 \
     --corpus ${DATASET_DIR}/mdrag-5K/passages \
     --topic ${DATASET_DIR}/mdrag-5K/ranking/test_topics_report_request.tsv \
     --batch_size 32  \
     --max_length 512 \
     --input_run retrieval/sample.run \
-    --output reranking/baseline.bm25+monot5.mdrag-5K-test.passages.run \
+    --output reranking/baseline.bm25+${model_class}.mdrag-5K-test.passages.run \
     --top_k 100 \
     --device cuda \
     --fp16
