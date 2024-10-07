@@ -93,6 +93,8 @@ def main():
 
     # Use summarization/extraction of the documents
     parser.add_argument("--ampere_gpu", default=False, action='store_true')
+    parser.add_argument("--port", default='8000', type=str)
+    parser.add_argument("--num_gpus", default=1, type=int)
 
     # Load config
     args = parser.parse_args()

@@ -9,15 +9,14 @@
 #SBATCH --time=120:00:00
 #SBATCH --output=logs/%x.%j.out
 
-# Set-up the environment.
 source ${HOME}/.bashrc
-conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
 for shard_i in $(seq 0 40);do
     python3 augmentation/gen_questions.py \
         --shard $shard_i --shard_size 1000 \
+        --multi_news_file /home/dju/datasets/multi_news \
         --config configs/mds-decontextualize.llama3-8b.yaml \
         --split train \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
@@ -29,19 +28,3 @@ for shard_i in $(seq 0 40);do
         --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
         --ampere_gpu 
 done
-
-# test set
-# for shard_i in $(seq 0 4);do
-#     python3 augmentation/gen_questions.py \
-#         --shard $shard_i --shard_size 1000 \
-#         --config configs/mds-decontextualize.llama3-8b.yaml \
-#         --split test \
-#         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-#         --model_tag metallama3.1-8b \
-#         --tag ques-gen \
-#         --load_mode vllm \
-#         --temperature 0.7 \
-#         --max_new_tokens 640 \
-#         --output_dir ${DATASET_DIR}/mdrag-5K/shard_data/ \
-#         --ampere_gpu 
-# done

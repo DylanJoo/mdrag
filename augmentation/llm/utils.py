@@ -49,11 +49,11 @@ def load_model(
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
         device_map='auto',
-        max_memory=get_max_memory(),
         load_in_8bit=(load_mode == '8bit'),
         load_in_4bit=(load_mode == '4bit'),
         **model_kwargs
     )
+        # max_memory=get_max_memory(),
         # attn_implementation="sdpa",
     logger.info("Finish loading in %.2f sec." % (time.time() - start_time))
 

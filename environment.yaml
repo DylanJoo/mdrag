@@ -276,4 +276,3 @@ dependencies:
       - xformers==0.0.27.post2
       - xxhash==3.4.1
       - yarl==1.9.4
-prefix: /home/dju/miniconda3/envs/rag

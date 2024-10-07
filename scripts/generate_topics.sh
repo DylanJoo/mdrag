@@ -1,6 +1,6 @@
 #!/bin/sh
 # The following lines instruct Slurm to allocate one GPU.
-#SBATCH --job-name=topic-gen
+#SBATCH --job-name=topics-gen
 #SBATCH --partition gpu
 #SBATCH --gres=gpu:nvidia_rtx_a6000:1
 #SBATCH --mem=32G
@@ -9,9 +9,8 @@
 #SBATCH --time=120:00:00
 #SBATCH --output=logs/%x.%j.out
 
-# Set-up the environment.
+
 source ${HOME}/.bashrc
-conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
@@ -29,19 +28,3 @@ for shard_i in $(seq 0 24);do
         --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
         --ampere_gpu 
 done
-
-# test set 
-# for shard_i in $(seq 0 4);do
-#     python3 augmentation/gen_topics.py \
-#         --shard $shard_i --shard_size 2000 \
-#         --config configs/mds-decontextualize.llama3-8b.yaml \
-#         --split test \
-#         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-#         --model_tag metallama3.1-8b \
-#         --tag topics-gen \
-#         --load_mode vllm \
-#         --temperature 0.7 \
-#         --max_new_tokens 128 \
-#         --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
-#         --ampere_gpu 
-# done
