@@ -1,5 +1,5 @@
 # bm25 evaluate
-for retrieval in bm25 contriever;do
+for retrieval in bm25 contriever splade;do
     for split in test testb;do
     # ad-hoc ranking
         echo -ne "RACE-"${split}" | baseline | ${retrieval} | P@R_p | "

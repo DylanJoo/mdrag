@@ -24,10 +24,10 @@ python retrieval/mlm_encode.py \
     --max_length 256 \
     --quantization_factor 100
 
-# Index 
+# Index (cpu only)
 python -m pyserini.index.lucene \
   --collection JsonVectorCollection \
-  --input ${INDEX_DIR}/RACE/splade-v3.race-passages.encoded/vectors.jsonl \
+  --input ${INDEX_DIR}/RACE/splade-v3.race-passages.encoded \
   --index ${INDEX_DIR}/RACE/splade-v3.race-passages.lucene \
   --generator DefaultLuceneDocumentGenerator \
   --threads 36 \
@@ -36,7 +36,7 @@ python -m pyserini.index.lucene \
 # Search
 for split in test testb;do
     python -m pyserini.search.lucene \
-        --index ${INDEX_DIR}/splade-v3.race-passages.lucene \
+        --index ${INDEX_DIR}/RACE/splade-v3.race-passages.lucene \
         --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
 	    --encoder ${RETRIEVER} \
         --output retrieval/baseline.splade.race-${split}.passages.run \

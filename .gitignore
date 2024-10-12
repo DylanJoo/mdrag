@@ -5,6 +5,7 @@ logs/
 
 retrieval/*run
 outputs/
+judgements/
 judgements/*jsonl
 testing/*
 

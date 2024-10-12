@@ -19,10 +19,6 @@ def replace_tags(sent, tag='q'):
         sent = re.sub(r"\<q\>|\<\/q\>", "\n", sent)
     if tag == 'p':
         sent = re.sub(r"\<p\>|\<\/p\>", "\n", sent)
-
-    pattern = re.compile(r'^\d+\s*[-\\.)]?\s+')
-    sent = re.sub(pattern, '', sent)
-
     pattern = re.compile(r"\n+")
     sent = re.sub(pattern, '\n', sent)
     return sent
@@ -91,7 +87,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Seed for the random number generator")
 
     # Model and name
-    parser.add_argument("--dataset_name", type=str, help="Name of the dataset (for saving)")
+    # parser.add_argument("--dataset_name", type=str, help="Name of the dataset (for saving)")
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
     parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
@@ -100,8 +96,8 @@ def main():
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
     parser.add_argument("--top_p", type=float, default=1.0, help="Nucleus sampling top-p")
-    parser.add_argument("--max_new_tokens", type=int, default=64, help="Max number of new tokens to generate in one step")
-    parser.add_argument("--max_length", type=int, default=2048, help="Max length the model can take. Should set properly wrt the model to avoid position overflow.")
+    parser.add_argument("--max_new_tokens", type=int, default=5, help="Max number of new tokens to generate in one step")
+    parser.add_argument("--max_length", type=int, default=16, help="Max length the model can take. Should set properly wrt the model to avoid position overflow.")
     parser.add_argument("--num_samples", type=int, default=1, help="Sample multiple answers.")
 
     # Use summarization/extraction of the documents

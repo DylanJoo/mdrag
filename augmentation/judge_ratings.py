@@ -6,14 +6,12 @@ logger.setLevel(logging.INFO)
 import re
 import os
 import yaml
-import torch
 import argparse
 import json
 import numpy as np
 from tqdm import tqdm
 from glob import glob
 
-from llm.base import LLM, vLLM
 from prompts.mds import *
 
 def replace_tags(sent, tag='q'):
@@ -37,7 +35,6 @@ def load_question(path, n=10):
             questions.append({"example_id": example_id, "texts": outputs})
     return questions
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Path to the config file")
@@ -54,7 +51,7 @@ def main():
     parser.add_argument("--tag", type=str, help="Tag of run (for saving)") # use shard here
     parser.add_argument("--model", type=str, help="Model to use")
     parser.add_argument("--model_tag", type=str, help="Tag of run (for saving)") 
-    parser.add_argument("--load_mode", type=str, default='no', help="Model to use")
+    parser.add_argument("--load_mode", type=str, default='no', help="['vllm', '8bit', '4bit', 'api']")
 
     # Decoding
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for decoding")
@@ -65,6 +62,9 @@ def main():
 
     # Use summarization/extraction of the documents
     parser.add_argument("--ampere_gpu", default=False, action='store_true')
+    parser.add_argument("--port", default='8000', type=str)
+    parser.add_argument("--num_gpus", default=1, type=int)
+    parser.add_argument("--n_questions", default=10, type=int)
 
     # Load config
     args = parser.parse_args()
@@ -78,15 +78,20 @@ def main():
 
     # Load the model or setup the API
     if args.load_mode == 'vllm':
+        from llm.base import vLLM
         llm = vLLM(args)
+    elif args.load_mode == "api":
+        from llm.requester import API
+        llm = API(args)
     else:
+        from llm.base import LLM
         llm = LLM(args)
 
-    # Load data
+
     logger.info("load questions...") 
     questions_all = []
-    for file in tqdm(glob(os.path.join(args.shard_dir, f"ques-gen/*{args.split}*.json"))):
-        questions = load_question(file)
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"ques-gen/*-{args.split}-*.json"))):
+        questions = load_question(file, args.n_questions)
         questions_all += questions
     questions_all = {q['example_id']: q['texts'] for q in questions_all}
 
@@ -97,7 +102,7 @@ def main():
             id, text = line.split('\t')
             topics_all[id] = text.strip()
 
-    logger.info("load retrieval context...") 
+    logger.info("load context...") 
     context_type = ""
     contexts_all = {}
     with open(args.context_file, 'r') as f:
@@ -118,14 +123,9 @@ def main():
         questions = questions_all[example_id]
         topic = topics_all[example_id]
         context_list = contexts_all[example_id]
-        if len(context_list) == 0:
-            continue
 
         output = ""
         output_array = []
-        if len(context_list) == 0:
-            continue
-
         for i, context in enumerate(context_list):
 
             output_vector = [-1 for _ in questions]
