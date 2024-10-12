@@ -13,15 +13,11 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-# flatten generated passages
-## Test: Multi-News 
-python3 augmentation/create_collections.py \
-    --dataset_dir ${DATASET_DIR}/mdrag/shard_data/ratings-gen \
-    --split test \
-    --output_dir ${DATASET_DIR}/mdrag
+## Multi-News Train and test
+for split in train test testb;do
+    python3 augmentation/create_collections.py \
+        --dataset_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+        --split ${split} \
+        --output_dir ${DATASET_DIR}/RACE
+done
 
-## Testb: TREC DUC 04
-python3 augmentation/create_collections.py \
-    --dataset_dir ${DATASET_DIR}/mdrag/shard_data/ratings-gen \
-    --split testb \
-    --output_dir ${DATASET_DIR}/mdrag

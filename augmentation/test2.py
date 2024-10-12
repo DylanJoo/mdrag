@@ -65,8 +65,7 @@ def load_passages(path, n=3):
 
 logger.info("load passages (and documents)...") 
 passages_all = []
-# print("\n".join(glob(os.path.join("/users/judylan1/datasets/mdrag/shard_data/psgs-gen/*-test-*.json"))))
-for file in tqdm(sorted(glob(os.path.join("/users/judylan1/datasets/mdrag/shard_data/psgs-gen/*-test-*.json")))):
+for file in tqdm(sorted(glob(os.path.join("/home/dju/datasets/RACE/shard_data/psgs-gen/*-test-*.json")))):
     print(file)
     passages = load_passages(file)
     passages_all += passages

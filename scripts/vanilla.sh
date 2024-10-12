@@ -14,14 +14,14 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-for split in test;do
-    for retriever in contriever;do
+for split in test testb;do
+    for retriever in bm25 contriever;do
         python3 vanilla.py \
-            --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-            --collection ${DATASET_DIR}/mdrag-5K/passages \
-            --run retrieval/baseline.${retriever}.mdrag-5K-${split}.passages.run \
+            --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
+            --collection ${DATASET_DIR}/RACE/passages \
+            --run retrieval/baseline.${retriever}.race-${split}.passages.run \
             --topk 10 \
-            --output_file outputs/mdrag-5K-${split}-${retriever}-top10-vanilla.jsonl
+            --output_file outputs/race-${split}-${retriever}-top10-vanilla.jsonl
     done
 done
 

@@ -4,7 +4,7 @@ logs/
 *logs*/
 
 retrieval/*run
-outputs/*jsonl
+outputs/
 judgements/*jsonl
 testing/*
 

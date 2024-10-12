@@ -12,32 +12,31 @@
 source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
-
 # pyserini==0.24.0 (add coniditons for collection uses 'contents')
-# contriever encode with faiss
+
+RETRIEVER=facebook/contriever-msmarco
+
+# contriever encode + indexing
 python -m pyserini.encode \
-    input   --corpus ${DATASET_DIR}/mdrag-5K/passages \
+    input   --corpus ${DATASET_DIR}/RACE/passages \
             --fields contents \
             --delimiter "\n" \
-    output  --embeddings ${INDEX_DIR}/mdrag-5K-passages.contriever \
+    output  --embeddings ${INDEX_DIR}/RACE/contriever.race-passages.flat.faiss \
             --to-faiss \
-    encoder --encoder facebook/contriever-msmarco \
+    encoder --encoder ${RETRIEVER} \
             --encoder-class contriever \
             --fields contents \
             --batch 32 \
             --fp16
 
 # contriever search
-for split in train test;do
-    # scoring
+for split test testb;do
     python3 -m pyserini.search.faiss \
         --threads 16 --batch-size 64 \
         --encoder-class contriever \
         --encoder facebook/contriever-msmarco \
-        --index ${INDEX_DIR}/mdrag-5K-passages.contriever \
-        --topics ${DATASET_DIR}/mdrag-5K/ranking/${split}_topics_report_request.tsv \
-        --output retrieval/baseline.contriever.mdrag-5K-${split}.passages.run \
-        --hits 200 
-
-    # max-p
+        --index ${INDEX_DIR}/RACE/contriever.race-passages.flat.faiss\
+        --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
+        --output retrieval/baseline.contriever.race-${split}.passages.run \
+        --hits 1000 
 done

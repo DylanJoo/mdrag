@@ -1,6 +1,6 @@
 #!/bin/sh
 # The following lines instruct Slurm 
-#SBATCH --job-name=vanilla
+#SBATCH --job-name=oracle
 #SBATCH --cpus-per-task=32
 #SBATCH --nodes=1
 #SBATCH --mem=32G
@@ -14,53 +14,44 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-# split=train
-# # vanilla oracle report
-# python3 vanilla_oracle.py \
-#     --multi_news_file ${DATASET_DIR}/multi_news \
-#     --split ${split} \
-#     --output_file outputs/mdrag-5K-${split}-oracle-report.jsonl \
-#     --quick_test 5000 \
-#     --tag report 
-#
-# # vanilla oracle documents 
-# python3 vanilla_oracle.py \
-#     --multi_news_file ${DATASET_DIR}/multi_news \
-#     --split ${split} \
-#     --output_file outputs/mdrag-5K-${split}-oracle-documents.jsonl \
-#     --quick_test 5000 \
-#     --tag documents
-#
-# # vanilla oracle passages
-# python3 vanilla_oracle.py \
-#     --multi_news_file ${DATASET_DIR}/multi_news \
-#     --qrel ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-#     --collection ${DATASET_DIR}/mdrag-5K/passages \
-#     --split ${split} \
-#     --quick_test 5000 \
-#     --output_file outputs/mdrag-5K-${split}-oracle-passages.jsonl \
-#     --tag passages
-
 split=test
-# vanilla oracle report
-python3 vanilla_oracle.py \
+python3 oracle.py \
     --multi_news_file ${DATASET_DIR}/multi_news \
     --split ${split} \
-    --output_file outputs/mdrag-5K-${split}-oracle-report.jsonl \
+    --output_file outputs/race-${split}-oracle-report.jsonl \
     --tag report 
 
-# vanilla oracle documents 
-python3 vanilla_oracle.py \
+python3 oracle.py \
     --multi_news_file ${DATASET_DIR}/multi_news \
     --split ${split} \
-    --output_file outputs/mdrag-5K-${split}-oracle-documents.jsonl \
+    --output_file outputs/race-${split}-oracle-documents.jsonl \
     --tag documents
 
-# vanilla oracle passages
-python3 vanilla_oracle.py \
+python3 oracle.py \
     --multi_news_file ${DATASET_DIR}/multi_news \
-    --qrel ${DATASET_DIR}/mdrag-5K/ranking/${split}_qrels_oracle_context_pr.txt \
-    --collection ${DATASET_DIR}/mdrag-5K/passages \
+    --qrel ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+    --collection ${DATASET_DIR}/RACE/passages \
     --split ${split} \
-    --output_file outputs/mdrag-5K-${split}-oracle-passages.jsonl \
+    --output_file outputs/race-${split}-oracle-passages.jsonl \
+    --tag passages
+
+split=testb
+python3 oracle.py \
+    --duc04_file ${DATASET_DIR}/duc04 \
+    --split ${split} \
+    --output_file outputs/race-${split}-oracle-report.jsonl \
+    --tag report 
+
+python3 oracle.py \
+    --duc04_file ${DATASET_DIR}/duc04 \
+    --split ${split} \
+    --output_file outputs/race-${split}-oracle-documents.jsonl \
+    --tag documents
+
+python3 oracle.py \
+    --duc04_file ${DATASET_DIR}/duc04 \
+    --qrel ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+    --collection ${DATASET_DIR}/RACE/passages \
+    --split ${split} \
+    --output_file outputs/race-${split}-oracle-passages.jsonl \
     --tag passages

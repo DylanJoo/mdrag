@@ -13,7 +13,7 @@ source ${HOME}/.bashrc
 cd ~/mdrag
 
 # Start the experiment.
-for split in train test;do
+for split in train;do
     python3 augmentation/gen_ratings.py \
         --shard_dir ${DATASET_DIR}/mdrag/shard_data --shard_size 1000 \
         --config configs/mds-decontextualize.llama3-8b.yaml \
@@ -27,15 +27,16 @@ for split in train test;do
         --output_dir ${DATASET_DIR}/mdrag/ \
         --ampere_gpu
 
-python3 augmentation/gen_ratings.py \
-    --shard_dir ${DATASET_DIR}/mdrag/shard_data --shard_size 1000 \
-    --config configs/mds-decontextualize.llama3-8b.yaml \
-    --split testb \
-    --model meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --model_tag metallama3.1-8b \
-    --tag ratings-gen \
-    --load_mode vllm \
-    --temperature 0.7 \
-    --max_new_tokens 5 \
-    --output_dir ${DATASET_DIR}/mdrag/ \
-    --ampere_gpu
+# This is only made for evaluation
+# python3 augmentation/gen_ratings.py \
+#     --shard_dir ${DATASET_DIR}/mdrag/shard_data/psg --shard_size 1000 \
+#     --config configs/mds-decontextualize.llama3-8b.yaml \
+#     --split testb \
+#     --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --model_tag metallama3.1-8b \
+#     --tag ratings-gen/8b \
+#     --load_mode vllm \
+#     --temperature 0.7 \
+#     --max_new_tokens 5 \
+#     --output_dir ${DATASET_DIR}/mdrag/ \
+#     --ampere_gpu
