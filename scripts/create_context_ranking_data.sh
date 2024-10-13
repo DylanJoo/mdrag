@@ -14,21 +14,29 @@ conda activate rag
 cd ~/mdrag
 
 ## Multi-News Train and test
-split=test
 for split in test testb;do
     python3 augmentation/create_context_ranking_data.py \
         --shard_dir ${DATASET_DIR}/RACE/shard_data \
-        --dataset_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+        --dataset_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b \
         --split ${split} \
         --output_dir ${DATASET_DIR}/RACE/ranking \
         --n_max_distractors 0 \
         --threshold 3
 
-    ## [ablation]
+    ## [ablation] larger grading model
+    python3 augmentation/create_context_ranking_data.py \
+        --shard_dir ${DATASET_DIR}/RACE/shard_data \
+        --dataset_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+        --split ${split} \
+        --output_dir ${DATASET_DIR}/RACE/ranking/70b \
+        --n_max_distractors 0 \
+        --threshold 3
+
+    ## [ablation] other threshold
     for threshold in 1 5;do
         python3 augmentation/create_context_ranking_data.py \
             --shard_dir ${DATASET_DIR}/RACE/shard_data \
-            --dataset_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+            --dataset_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b \
             --split ${split} \
             --output_dir ${DATASET_DIR}/RACE/ranking/${threshold} \
             --n_max_distractors 0 \

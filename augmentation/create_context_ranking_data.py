@@ -17,11 +17,6 @@ from pyserini.search.lucene import LuceneSearcher
 
 from utils import replace_tags
 
-def deduplicate_and_sort(doc_ids):
-    doc_ids = list(set(doc_ids))
-    sorted(doc_ids)
-    return doc_ids
-
 def check_newinfo(values, new_values):
     """
     return the value with added or the original value
@@ -147,9 +142,10 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True) 
     writer = {
         'topics': open(os.path.join(args.output_dir, f'{args.split}_topics_report_request.tsv'), 'w'),
-        'documents': open(os.path.join(args.output_dir, f'{args.split}_qrels_oracle_adhoc_dr.txt'), 'w'),
-        'passages': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_adhoc_pr.txt'), 'w'),
-        'contexts': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_context_pr.txt'), 'w')
+        'qrel_d': open(os.path.join(args.output_dir, f'{args.split}_qrels_oracle_adhoc_dr.txt'), 'w'),
+        'qrel_p': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_adhoc_pr.txt'), 'w'),
+        'qrel_pmin': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_context_pr.txt'), 'w'),
+        'questions': open(os.path.join(args.output_dir,  f'{args.split}_topics_exam_questions.jsonl'), 'w')
     }
 
     searcher = None
@@ -182,6 +178,7 @@ if __name__ == "__main__":
                 ## step1: greedily selection
                 ids = binarize_amount_rerank_greedy(data, threshold=3)
                 if ids is False:
+                    logger.warnings(f"example id: {example_id} has no positive passages with threshold {args.threshold}")
                     continue ### skip this example if no positive passages...
 
                 ## step2: re-organize oracle and positive document/passage ids
@@ -214,29 +211,36 @@ if __name__ == "__main__":
                 logger.info(f"#D*: {len(oracle_docids)} | #D-: {len(distractor_docids)}")
                 logger.info(f"#P*: {n_passages} | #P*_+: {len(oracle_pos_psgids)} | #P*_-: {len(oracle_neg_psgids)}")
 
-                ## step3a : creating topics [TODO] ad-hoc passage ranking
+                ## step3a : creating topics 
                 writer['topics'].write(f"{data['example_id']}\t{topics_all[data['example_id']]}\n")
 
-                ## step3b : creating qrels [TODO] ad-hoc passage ranking
+                ## step3b : creating topics exam questions
+                writer['questions'].write(json.dumps({
+                    'example_id': data['example_id'],
+                    'topic': topics_all[data['example_id']],
+                    'questions': questions
+                })+'\n')
+
+                ## step3c : creating qrels 
                 for docid in oracle_docids:
-                    writer['documents'].write(f"{data['example_id']} 0 {docid} 1\n")
+                    writer['qrel_d'].write(f"{data['example_id']} 0 {docid} 1\n")
 
                 for docid in distractor_docids:
-                    writer['documents'].write(f"{data['example_id']} 0 {docid} 0\n")
+                    writer['qrel_d'].write(f"{data['example_id']} 0 {docid} 0\n")
 
                 for psgid in oracle_pos_psgids:
-                    writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                    writer['contexts'].write(f"{data['example_id']} 0 {psgid} 2\n")
+                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_pmin'].write(f"{data['example_id']} 0 {psgid} 2\n")
 
                 # less useful contexts (no more answerable questions)
                 for psgid in oracle_neutral_psgids:
-                    writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                    writer['contexts'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_pmin'].write(f"{data['example_id']} 0 {psgid} 1\n")
 
                 # useless contexts (no higher-rated answerable questions)
                 for psgid in oracle_neg_psgids:
-                    writer['passages'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                    writer['contexts'].write(f"{data['example_id']} 0 {psgid} 0\n") 
+                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_pmin'].write(f"{data['example_id']} 0 {psgid} 0\n") 
 
     # write
     for key in writer:

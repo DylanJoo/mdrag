@@ -70,7 +70,6 @@ if __name__ == "__main__":
             example_id = data['example_id']
             questions = data['questions']
             ratings = np.array(data['ratings'])
-            # passages = [p for plist in data['passages'] for p in plist]
             passages = []
             for i, plist in enumerate(data['passages']):
                 for passage in plist:

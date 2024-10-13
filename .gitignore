@@ -4,10 +4,12 @@ logs/
 *logs*/
 
 retrieval/*run
+reranking/*run
 outputs/
 judgements/
 judgements/*jsonl
 testing/*
+
 
 **swp
 *errr

@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --job-name=contriever-retrieval
+#SBATCH --job-name=contriever
 #SBATCH --partition gpu
 #SBATCH --gres=gpu:1
 #SBATCH --mem=32G
@@ -30,7 +30,7 @@ python -m pyserini.encode \
             --fp16
 
 # contriever search
-for split test testb;do
+for split in testb test;do
     python3 -m pyserini.search.faiss \
         --threads 16 --batch-size 64 \
         --encoder-class contriever \

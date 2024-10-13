@@ -1,6 +1,6 @@
 #!/bin/sh
 # The following lines instruct Slurm 
-#SBATCH --job-name=eval-know
+#SBATCH --job-name=vanilla
 #SBATCH --cpus-per-task=16
 #SBATCH --nodes=1
 #SBATCH --mem=16G
@@ -15,13 +15,13 @@ cd ~/mdrag
 
 # Start the experiment.
 for split in test testb;do
-    for retriever in bm25 contriever;do
-        python3 vanilla.py \
-            --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
-            --collection ${DATASET_DIR}/RACE/passages \
-            --run retrieval/baseline.${retriever}.race-${split}.passages.run \
-            --topk 10 \
-            --output_file outputs/race-${split}-${retriever}-top10-vanilla.jsonl
-    done
+for retriever in bm25 splade contriever;do
+    python3 vanilla.py \
+        --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
+        --collection ${DATASET_DIR}/RACE/passages \
+        --run retrieval/baseline.${retriever}.race-${split}.passages.run \
+        --topk 10 \
+        --output_file outputs/race-${split}-${retriever}-top10-vanilla.jsonl
+done
 done
 

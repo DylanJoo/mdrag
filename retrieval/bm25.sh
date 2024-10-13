@@ -1,6 +1,6 @@
 #!/bin/sh
 # The following lines instruct Slurm 
-#SBATCH --job-name=bm25-retrieval
+#SBATCH --job-name=bm25
 #SBATCH --cpus-per-task=32
 #SBATCH --nodes=1
 #SBATCH --mem=32G
@@ -14,14 +14,14 @@ conda activate rag
 cd ~/mdrag
 
 # bm25 indexing
-for level in documents passages;do
-    python -m pyserini.index.lucene \
-        --collection JsonCollection \
-        --input ${DATASET_DIR}/RACE/${level} \
-        --index ${INDEX_DIR}/RACE/bm25.race-${level}.lucene \
-        --generator DefaultLuceneDocumentGenerator \
-        --threads 16
-done
+# for level in documents passages;do
+#     python -m pyserini.index.lucene \
+#         --collection JsonCollection \
+#         --input ${DATASET_DIR}/RACE/${level} \
+#         --index ${INDEX_DIR}/RACE/bm25.race-${level}.lucene \
+#         --generator DefaultLuceneDocumentGenerator \
+#         --threads 16
+# done
 
 # bm25 search
 for split in test testb;do

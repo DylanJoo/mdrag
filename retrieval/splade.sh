@@ -15,26 +15,26 @@ cd ~/mdrag
 RETRIEVER=naver/splade-v3
 
 # Encode 
-python retrieval/mlm_encode.py \
-    --model_name_or_path ${RETRIEVER} \
-    --tokenizer_name ${RETRIEVER} \
-    --collection_dir ${DATASET_DIR}/RACE/passages \
-    --collection_output ${INDEX_DIR}/RACE/splade-v3.race-passages.encoded/vectors.jsonl \
-    --batch_size 32 \
-    --max_length 256 \
-    --quantization_factor 100
+# python retrieval/mlm_encode.py \
+#     --model_name_or_path ${RETRIEVER} \
+#     --tokenizer_name ${RETRIEVER} \
+#     --collection_dir ${DATASET_DIR}/RACE/passages \
+#     --collection_output ${INDEX_DIR}/RACE/splade-v3.race-passages.encoded/vectors.jsonl \
+#     --batch_size 32 \
+#     --max_length 256 \
+#     --quantization_factor 100
 
 # Index (cpu only)
-python -m pyserini.index.lucene \
-  --collection JsonVectorCollection \
-  --input ${INDEX_DIR}/RACE/splade-v3.race-passages.encoded \
-  --index ${INDEX_DIR}/RACE/splade-v3.race-passages.lucene \
-  --generator DefaultLuceneDocumentGenerator \
-  --threads 36 \
-  --impact --pretokenized
+# python -m pyserini.index.lucene \
+#   --collection JsonVectorCollection \
+#   --input ${INDEX_DIR}/RACE/splade-v3.race-passages.encoded \
+#   --index ${INDEX_DIR}/RACE/splade-v3.race-passages.lucene \
+#   --generator DefaultLuceneDocumentGenerator \
+#   --threads 36 \
+#   --impact --pretokenized
 
 # Search
-for split in test testb;do
+for split in testb test;do
     python -m pyserini.search.lucene \
         --index ${INDEX_DIR}/RACE/splade-v3.race-passages.lucene \
         --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \

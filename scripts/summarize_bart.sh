@@ -15,13 +15,14 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-for split in test testb;do
+# for split in test testb;do
+for split in testb;do
     for retriever in bm25 contriever splade;do
         python3 summarize_ind.py \
             --model_name_or_path facebook/bart-large-cnn \
             --model_class seq2seq \
             --template '{P}' \
-            --batch_size 128 \
+            --batch_size 256 \
             --topk 10 \
             --max_length 1024 \
             --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \

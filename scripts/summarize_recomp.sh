@@ -2,7 +2,7 @@
 # The following lines instruct Slurm to allocate one GPU.
 #SBATCH --job-name=recomp
 #SBATCH --partition gpu
-#SBATCH --gres=gpu:nvidia_titan_v:1
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
 #SBATCH --mem=16G
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -15,13 +15,14 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-for split in test testb;do
+# for split in test testb;do
+for split in testb;do
     for retriever in bm25 contriever splade;do
         python3 summarize_ind.py \
             --model_name_or_path fangyuan/nq_abstractive_compressor \
             --model_class seq2seq \
             --template 'Question: {Q}\n Document: {P}\n Summary: ' \
-            --batch_size 128 \
+            --batch_size 256 \
             --topk 10 \
             --max_length 1024 \
             --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
