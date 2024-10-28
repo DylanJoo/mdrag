@@ -1,16 +1,12 @@
 # bm25 evaluate
+for split in test testb;do
+    echo "RACE-"${split}
+
 for retrieval in bm25 contriever splade;do
-    for split in test testb;do
-    # ad-hoc ranking
-        echo -ne "RACE-"${split}" | baseline | ${retrieval} | P@R_p | "
-        ~/trec_eval-9.0.7/trec_eval -c -m Rprec -m recall.10 \
-            ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_adhoc_pr.txt \
-            retrieval/baseline.${retrieval}.race-${split}.passages.run \
-            | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
-        echo -ne "RACE-"${split}" | baseline | ${retrieval} | P@_p_min | "
-        ~/trec_eval-9.0.7/trec_eval -c -m Rprec -m recall.10 \
-            ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-            retrieval/baseline.${retrieval}.race-${split}.passages.run \
-            | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
-    done
+    echo -ne "  baseline | ${retrieval} | "
+    ir_measures \
+        ${DATASET_DIR}/RACE/ranking_3/70b/${split}_qrels_oracle_context_pr.txt \
+        retrieval/baseline.${retrieval}.race-${split}.passages.run \
+        'RPrec(rel=1) RPrec(rel=2) RPrec(rel=3) R(rel=3)@10' | cut -f2 | sed ':a; N; $!ba; s/\n/ | /g'
+done
 done

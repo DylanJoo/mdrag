@@ -3,8 +3,9 @@
 logs/
 *logs*/
 
-retrieval/*run
-reranking/*run
+retrieval/*/*run
+reranking/*/*run
+runs/*
 outputs/
 judgements/
 judgements/*jsonl

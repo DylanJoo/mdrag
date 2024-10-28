@@ -144,21 +144,7 @@ def main():
                 'type': f'oracle-report (md-summary)',
                 'output': normalize_text(item['summary'])
             }
-
-        if 'documents' in args.tag:
-            item = {
-                'example_id': example_id, 
-                'type': f'oracle-documents',
-                'output': item['document']
-            }
-
-        if 'passages' in args.tag:
-            item = {
-                'example_id': example_id, 
-                'type': f'oracle-passages',
-                'output': [passages[id] for id in qrels[example_id]]
-            }
-
+        # only report has to rerun the exps
         writer.write(json.dumps(item, ensure_ascii=False)+'\n')
 
     writer.close()

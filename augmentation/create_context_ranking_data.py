@@ -143,8 +143,7 @@ if __name__ == "__main__":
     writer = {
         'topics': open(os.path.join(args.output_dir, f'{args.split}_topics_report_request.tsv'), 'w'),
         'qrel_d': open(os.path.join(args.output_dir, f'{args.split}_qrels_oracle_adhoc_dr.txt'), 'w'),
-        'qrel_p': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_adhoc_pr.txt'), 'w'),
-        'qrel_pmin': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_context_pr.txt'), 'w'),
+        'qrel_p': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_context_pr.txt'), 'w'),
         'questions': open(os.path.join(args.output_dir,  f'{args.split}_topics_exam_questions.jsonl'), 'w')
     }
 
@@ -172,13 +171,13 @@ if __name__ == "__main__":
 
                 # sanity check
                 if ratings.shape != (n_passages, len(questions)):
-                    logger.warnings(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
+                    logger.warning(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
                     continue
 
                 ## step1: greedily selection
-                ids = binarize_amount_rerank_greedy(data, threshold=3)
+                ids = binarize_amount_rerank_greedy(data, threshold=args.threshold)
                 if ids is False:
-                    logger.warnings(f"example id: {example_id} has no positive passages with threshold {args.threshold}")
+                    logger.warning(f"example id: {example_id} has no positive passages with threshold {args.threshold}")
                     continue ### skip this example if no positive passages...
 
                 ## step2: re-organize oracle and positive document/passage ids
@@ -229,18 +228,18 @@ if __name__ == "__main__":
                     writer['qrel_d'].write(f"{data['example_id']} 0 {docid} 0\n")
 
                 for psgid in oracle_pos_psgids:
-                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                    writer['qrel_pmin'].write(f"{data['example_id']} 0 {psgid} 2\n")
+                    # writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 3\n")
 
                 # less useful contexts (no more answerable questions)
                 for psgid in oracle_neutral_psgids:
-                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                    writer['qrel_pmin'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    # writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 2\n")
 
                 # useless contexts (no higher-rated answerable questions)
                 for psgid in oracle_neg_psgids:
-                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
-                    writer['qrel_pmin'].write(f"{data['example_id']} 0 {psgid} 0\n") 
+                    # writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
+                    writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n") 
 
     # write
     for key in writer:

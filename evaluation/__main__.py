@@ -18,6 +18,8 @@ from transformers import AutoTokenizer
 
 def load_qrel(path, threshold=0):
     data = defaultdict(list)
+    if path is None:
+        return None
     with open(path) as f:
         for line in f:
             item = line.strip().split()
@@ -34,6 +36,7 @@ if __name__ == "__main__":
     parser.add_argument("--generator_name", type=str, default=None)
     parser.add_argument("--threshold", type=float, default=3)
     parser.add_argument("--rel_threshold", type=float, default=1)
+    parser.add_argument("--topk", type=int, default=None)
     parser.add_argument("--tag", type=str, default=None)
     args = parser.parse_args()
 
@@ -57,8 +60,12 @@ if __name__ == "__main__":
         with open(args.judgement_file, 'r') as f:
             for line in f:
                 data = json.loads(line.strip())
-                judgements_all[data['example_id']] = data['judgements']
-                contexts_all[data['example_id']] = data['contexts']
+
+                try:
+                    judgements_all[data['example_id']] = data['judgement_all'][:args.topk]
+                except:
+                    judgements_all[data['example_id']] = data['judgements'][:args.topk]
+                contexts_all[data['example_id']] = data['contexts'][:args.topk]
                 judge_LLM = data['judge_LLM']
 
     # load graded passages
@@ -86,7 +93,7 @@ if __name__ == "__main__":
                     passages = [passages[s] for s in selected]
 
                 outputs['num_segs'].append(len(passages))
-                ratings = np.max(ratings, axis=0)
+                ratings = np.max(ratings[:args.topk], axis=0)
                 context = " ".join(passages)
             else:
                 ratings = np.array(judgements_all[example_id])
@@ -110,7 +117,7 @@ if __name__ == "__main__":
     mean_num_segments = np.mean(outputs['num_segs'])
     mean_num_tokens = np.mean(outputs['num_tokens'])
     logger.info(f'==== Evaluation Results ====')
-    logger.info(f" # TAG : {args.tag} | Judge-LLM: {judge_LLM} | {len(outputs['coverage'])} examples")
+    logger.info(f" # TAG : {args.tag.replace('topk', str(args.topk))} | Judge-LLM: {judge_LLM} | {len(outputs['coverage'])} examples")
     logger.info(f' # Mean Coverage(tau={args.threshold}) : {mean_coverage}')
     logger.info(f' # Mean Density (tau={args.threshold}) : {mean_density}')
     logger.info(f' # Mean number of segments : {mean_num_segments}')

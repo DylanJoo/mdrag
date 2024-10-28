@@ -19,10 +19,11 @@ class vLLM:
     def __init__(self, args):
         self.model = v_llm(
             args.model, 
-            dtype='bfloat16',
+            quantization=args.quant,
             enforce_eager=True,
             pipeline_parallel_size=(args.num_gpus or 1)
         )
+            # dtype='bfloat16',
         self.tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
         self.tokenizer.padding_side = "left"
         self.sampling_params = SamplingParams(

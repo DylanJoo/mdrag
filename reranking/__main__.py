@@ -58,8 +58,7 @@ def rerank(
     qtexts = list(topics.values())
     corpus = load_corpus(corpus)
     runs = load_runs(input_run, topk=top_k, output_score=False)
-
-    qids = [qid for qid in qids if qid in runs] 
+    qids = [qid for qid in qids if qid in runs]  # only appeared in run
 
     for qid in tqdm(qids, total=len(qids)):
         result = runs[qid]
@@ -71,10 +70,10 @@ def rerank(
         for batch_docs in batch_iterator(documents, batch_size):
             queries = [query] * len(batch_docs)
             batch_scores = reranker.predict(
-                    queries=queries,
-                    documents=[doc['text'] for doc in batch_docs],
-                    titles=[doc['title'] for doc in batch_docs],
-                    max_length=max_length
+                queries=queries,
+                documents=[doc['text'] for doc in batch_docs],
+                titles=[doc['title'] for doc in batch_docs],
+                max_length=max_length
             )
             scores.extend(batch_scores)
 

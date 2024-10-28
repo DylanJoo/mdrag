@@ -65,6 +65,8 @@ def main():
     parser.add_argument("--port", default='8000', type=str)
     parser.add_argument("--num_gpus", default=1, type=int)
     parser.add_argument("--n_questions", default=10, type=int)
+    parser.add_argument("--quant", default=None, type=str)
+    parser.add_argument("--top_k", default=-1, type=int)
 
     # Load config
     args = parser.parse_args()
@@ -126,7 +128,7 @@ def main():
 
         output = ""
         output_array = []
-        for i, context in enumerate(context_list):
+        for i, context in enumerate(context_list[:args.top_k]):
 
             output_vector = [-1 for _ in questions]
             for k, question in enumerate(questions):
@@ -153,7 +155,7 @@ def main():
             output_array.append(output_vector)
 
         ## aggregate the ratings of retrieval context
-        output_array = np.max(output_array, axis=0).tolist()
+        max_output_array = np.max(output_array, axis=0).tolist()
         logger.info(f"Example: {example_id} | #Context: {i+1}")
         logger.info(f"Final model output: {output_vector}") 
 
@@ -163,7 +165,8 @@ def main():
             "questions": questions,
             "judge_LLM": args.model_tag,
             "contexts": context_list,
-            "judgements": output_array
+            "judgements": max_output_array,
+            "judgement_all": output_array
         })
 
     # Save the result

@@ -49,38 +49,29 @@ def load_run(path):
         data[id] = [docid for docid, _ in sorted(data[id], key=lambda x: x[1])]
     return data
 
-def load_model(model_name_or_path, model_class='causualLM', dtype=torch.float16, load_mode=None):
+def load_model(model_name_or_path, model_class='causuallm', dtype=None, load_mode=None):
 
     from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
     from .models import FiDT5
-    MODEL_CLASS = {"fid": FiDT5, "seq2seq": AutoModelForSeq2SeqLM}[model_class]
+    MODEL_CLASS = {"fid": FiDT5, "seq2seq": AutoModelForSeq2SeqLM, "causallm": None}[model_class]
 
     logger.info(f"Loading {model_name_or_path} ({model_class}) in {dtype}...")
     logger.warn(f"Use generator.{load_mode}")
     start_time = time.time()
 
-    ## model_args
-    if model_class == 'causualLM': # one model may larger than a gpu
+    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=False)
+
+    if model_class == 'causallm': # one model may larger than a gpu
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path, 
-            device_map='cuda',
-            torch_dtype=dtype,
-            load_in_4bit=True,
-            max_memory=get_max_memory(),
-        )
+            load_in_8bit=True,
+            torch_dtype=(dtype or torch.float16)
+        ).to('cuda')
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = 'left'
     else:
         model = MODEL_CLASS.from_pretrained(model_name_or_path).to('cuda')
 
     logger.info("Finish loading in %.2f sec." % (time.time() - start_time))
 
-    # Load the tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=False)
     return model, tokenizer
-
-def get_max_memory():
-    """Get the maximum memory available for the current GPU for loading models."""
-    free_in_GB = int(torch.cuda.mem_get_info()[0]/1024**3)
-    max_memory = f'{free_in_GB-4}GB' # original is -6
-    n_gpus = torch.cuda.device_count()
-    max_memory = {i: max_memory for i in range(n_gpus)}
-    return max_memory

@@ -14,28 +14,20 @@ conda activate rag
 cd ~/mdrag
 
 # bm25 indexing
-# for level in documents passages;do
-#     python -m pyserini.index.lucene \
-#         --collection JsonCollection \
-#         --input ${DATASET_DIR}/RACE/${level} \
-#         --index ${INDEX_DIR}/RACE/bm25.race-${level}.lucene \
-#         --generator DefaultLuceneDocumentGenerator \
-#         --threads 16
-# done
-
-# bm25 search
 for split in test testb;do
-    python -m pyserini.search.lucene \
-      --index ${INDEX_DIR}/RACE/bm25.race-documents.lucene \
-      --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
-      --output retrieval/baseline.bm25.race-${split}.documents.run \
-      --hits 100 \
-      --bm25
+    # index
+    python -m pyserini.index.lucene \
+        --collection JsonCollection \
+        --input ${DATASET_DIR}/RACE/passages/${split} \
+        --index ${INDEX_DIR}/RACE/bm25.race-${split}.passages.lucene \
+        --generator DefaultLuceneDocumentGenerator \
+        --threads 16
 
+    # search
     python -m pyserini.search.lucene \
-      --index ${INDEX_DIR}/RACE/bm25.race-passages.lucene \
-      --topics ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
-      --output retrieval/baseline.bm25.race-${split}.passages.run \
-      --hits 1000 \
+      --index ${INDEX_DIR}/RACE/bm25.race-${split}.passages.lucene \
+      --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
+      --output runs/baseline.bm25.race-${split}.passages.run \
+      --hits 100 \
       --bm25
 done

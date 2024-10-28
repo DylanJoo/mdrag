@@ -17,30 +17,23 @@ from retrieval_augmentation.utils import (
     load_collection
 )
 
-def truncate_and_concat(texts, tokenizer, max_length=512):
+def truncate_and_concat(texts, tokenizer, max_length=512, offset=6):
     tokenized = tokenizer.tokenize(texts)
     length = len(tokenizer.tokenize(texts))
     max_length = (max_length or tokenizer.max_lengt_single_sentence-1)
-    if (length+6) < max_length:
+    if (length+offset) < max_length:
         return texts
     else:
         return tokenizer.convert_tokens_to_string(tokenized[:(max_length-6)])
 
-# def load_rewrite(file):
-#     data_items = json.load(open(file))
-#     rewritten_queries = {}
-#     for item in data_items:
-#         id = str(item['requestid']) + item['colectionids'].replace('neuclir/1/', '')[:2]
-#         rewritten_queries[id] = item['rewrite']
-#     return rewritten_queries
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name_or_path", type=str, default=None)
-    parser.add_argument("--model_class", type=str, default=None, choices=["fid", "seq2seq", "causualLM"])
+    parser.add_argument("--model_class", type=str, default=None, choices=["fid", "seq2seq", "causalLM"])
     parser.add_argument("--template", type=str, default="title: {T} content: {P}")
     parser.add_argument("--max_length", type=int, default=512)
     parser.add_argument("--batch_size", type=int, default=32)
+
     # IR requirements
     parser.add_argument("--topics", type=str, default=None)
     parser.add_argument("--rewritten", type=str, default=None)
@@ -49,11 +42,11 @@ def main():
     parser.add_argument("--topk", type=int, default=10)
 
     parser.add_argument("--output_file", type=str, default=None)
-    parser.add_argument("--truncate", default=False, action='store_true')
+    parser.add_argument("--truncate", type=int, default=6)
     args = parser.parse_args()
 
     # load model
-    model, tokenizer = load_model(args.model_name_or_path, model_class=args.model_class)
+    model, tokenizer = load_model(args.model_name_or_path, model_class=args.model_class.lower())
     model.eval()
 
     # load topics
@@ -74,42 +67,63 @@ def main():
 
     # load run (retrieval)
     run = load_run(args.run)
-
     writer = open(args.output_file, 'w')
+    all_example_ids = list(topics.keys())
 
-    for example_id in tqdm(topics, total=len(topics)):
+    iters = batch_iterator(all_example_ids, 20) 
+    for batch_example_id in tqdm(iters, total=len(all_example_ids) //20 + 1):
 
-        topic = topics[example_id]
-        candidate_docids = [d for d in run[example_id][:args.topk]]
+        # collect data
+        example_ids = []
+        inputs = []
+        for example_id in batch_example_id:
+
+            topic = topics[example_id]
+            for id in run[example_id][:args.topk]:
+                doc = truncate_and_concat(
+                    collection[id], 
+                    tokenizer=tokenizer,
+                    max_length=args.max_length, 
+                    offset=args.truncate
+                )
+                input = args.template.replace("{Q}", topic).replace("{P}", doc)
+
+                example_ids.append(example_id)
+                inputs.append(input)
 
         # batch inference
-        summaries = []
-        for batch_docs in batch_iterator(candidate_docids, args.batch_size):
+        generations = defaultdict(list)
+        iterables = list(range(len(example_ids)))
+        for s, e in batch_iterator(iterables, args.batch_size, return_index=True):
 
-            batch_docs = [collection[id] for id in batch_docs]
+            batch_example_ids = example_ids[s:e]
+            batch_inputs = inputs[s:e]
+            tokenized_input = tokenizer(
+                batch_inputs, 
+                padding=True, 
+                truncation=True, 
+                max_length=args.max_length, 
+                return_tensors='pt'
+            ).to(model.device)
 
-            if args.truncate:
-                batch_docs = [truncate_and_concat(doc, tokenizer, max_length=args.max_length) for doc in batch_docs]
-
-            # independently input
-            input = list(
-                args.template.replace("{Q}", topic).replace("{P}", doc) \
-                        for doc in batch_docs
-            )
-            tokenized_input = tokenizer(input, padding=True, truncation=True, max_length=args.max_length, return_tensors='pt').to(model.device)
-            outputs = model.generate(
-                **tokenized_input, min_new_tokens=32, max_new_tokens=512
-            )
+            outputs = model.generate(**tokenized_input, min_new_tokens=32, max_new_tokens=512)
             outputs = [tokenizer.decode(o, skip_special_tokens=True) for o in outputs]
-            summaries.extend(outputs)
+            if args.model_class == 'causalLM':
+                outputs = [o.split('</s>')[0] for o in outputs]
 
-        logger.info(f"Summarizaiton-{args.model_name_or_path}: {outputs[0]}")
-        item = {
-            'example_id': example_id, 
-            'type': args.model_name_or_path, 
-            'output': summaries
-        }
-        writer.write(json.dumps(item, ensure_ascii=False)+'\n')
+            for example_id, output in zip(batch_example_ids, outputs):
+                generations[example_id].append(output)
+
+            logger.info(f"Summarizaiton-{args.model_name_or_path}: {output}")
+
+        # write
+        for example_id in generations:
+            item = {
+                'example_id': example_id, 
+                'type': args.model_name_or_path, 
+                'output': generations[example_id]
+            }
+            writer.write(json.dumps(item, ensure_ascii=False)+'\n')
 
     writer.close()
 
