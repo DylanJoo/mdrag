@@ -15,7 +15,7 @@ from tqdm import tqdm
 from glob import glob
 from pyserini.search.lucene import LuceneSearcher
 
-from utils import replace_tags
+from utils import replace_tags, load_topic_data
 
 def check_newinfo(values, new_values):
     """
@@ -114,24 +114,13 @@ def mine_distractor(topic, searcher, k=10, max_docs_return=3, ignored_prefix="")
                 return to_return
     return []
 
-def load_topic(path, n=1):
-    data = json.load(open(path, 'r'))
-
-    topics = []
-    for i, item in enumerate(data['data']):
-        example_id = item['example_id']
-        outputs = item['output'].strip().split('</r>')[:n]
-        outputs = [replace_tags(o, 'r').strip() for o in outputs][0]
-        topics.append({"example_id": example_id, "texts": outputs})
-    return topics
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Print output")
     parser.add_argument("--shard_dir", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default=None)
-    parser.add_argument("--dataset_dir", type=str, default=None)
-    #
+    parser.add_argument("--ratings_dir", type=str, default=None)
     parser.add_argument("--split", type=str, default='train')
+    parser.add_argument("--random_subset", type=int, default=-1)
 
     # metadata of the training data
     parser.add_argument("--n_max_distractors", type=int, default=None)
@@ -142,24 +131,32 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True) 
     writer = {
         'topics': open(os.path.join(args.output_dir, f'{args.split}_topics_report_request.tsv'), 'w'),
+        'questions': open(os.path.join(args.output_dir,  f'{args.split}_topics_exam_questions.jsonl'), 'w'),
         'qrel_d': open(os.path.join(args.output_dir, f'{args.split}_qrels_oracle_adhoc_dr.txt'), 'w'),
         'qrel_p': open(os.path.join(args.output_dir,  f'{args.split}_qrels_oracle_context_pr.txt'), 'w'),
-        'questions': open(os.path.join(args.output_dir,  f'{args.split}_topics_exam_questions.jsonl'), 'w')
+        'judgements': open(os.path.join(args.output_dir,  f'{args.split}_judgements.jsonl'), 'w')
     }
 
     searcher = None
     if args.n_max_distractors > 0:
         searcher = LuceneSearcher(args.doc_lucene_index)
 
-    # load topic 
+    ## topic subset
     topics_all = []
     logger.info("load topics ...") 
-    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*-{args.split}-*.json"))):
-        topic = load_topic(file)
+    for file in tqdm(sorted(glob(os.path.join(args.shard_dir, f"topics-gen/*-{args.split}-*.json")))):
+        topic = load_topic_data(file)
         topics_all += topic
-    topics_all = {r['example_id']: r['texts'] for r in topics_all}
 
-    for file in glob(os.path.join(args.dataset_dir, f"*-{args.split}-*")):
+    if args.random_subset > 0:
+        np.random.seed(args.random_subset)
+        selected = np.random.randint(0, len(topics_all), args.random_subset)
+        topics_all = {r['example_id']: r['texts'] for i, r in enumerate(topics_all) if i in selected}
+    else:
+        topics_all = {r['example_id']: r['texts'] for r in topics_all}
+
+    ## determine the informativeness of passages
+    for file in glob(os.path.join(args.ratings_dir, f"*-{args.split}-*")):
         with open(file, 'r') as f:
             for line in f:
                 data = json.loads(line.strip())
@@ -170,6 +167,9 @@ if __name__ == "__main__":
                 ratings = np.array(data['ratings'])
 
                 # sanity check
+                if example_id not in topics_all:
+                    continue 
+
                 if ratings.shape != (n_passages, len(questions)):
                     logger.warning(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
                     continue
@@ -181,15 +181,21 @@ if __name__ == "__main__":
                     continue ### skip this example if no positive passages...
 
                 ## step2: re-organize oracle and positive document/passage ids
+                judgements = []
                 oracle_docids = [f"{example_id}:{i}" for i in ids['documents']]
                 oracle_pos_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['useful_passages']]
                 oracle_neg_psgids = [f"{example_id}:{i}#{j}" for (i, j) in ids['redundant_passages']]
                 oracle_neutral_psgids = []
+
                 j = 0
                 for i, plist in enumerate(data['passages']):
                     docid = f"{example_id}:{i}"
                     for passage in plist:
                         psgid = f"{docid}#{j}"
+
+                        ## collect the ratings
+                        judgements.append({"example_id": example_id, "pid": psgid, "rating": ratings[j].tolist() })
+
                         ## oracle psgids = positive && negatuve && neutral
                         if psgid not in oracle_pos_psgids+oracle_neg_psgids:
                             oracle_neutral_psgids.append(f"{docid}#{j}")
@@ -220,7 +226,11 @@ if __name__ == "__main__":
                     'questions': questions
                 })+'\n')
 
-                ## step3c : creating qrels 
+                ## step3c: create judgement cache
+                for judgement in judgements:
+                    writer['judgements'].write(json.dumps(judgement)+'\n')
+
+                ## step3d : creating qrels 
                 for docid in oracle_docids:
                     writer['qrel_d'].write(f"{data['example_id']} 0 {docid} 1\n")
 
@@ -228,17 +238,14 @@ if __name__ == "__main__":
                     writer['qrel_d'].write(f"{data['example_id']} 0 {docid} 0\n")
 
                 for psgid in oracle_pos_psgids:
-                    # writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
                     writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 3\n")
 
                 # less useful contexts (no more answerable questions)
                 for psgid in oracle_neutral_psgids:
-                    # writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
                     writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 2\n")
 
                 # useless contexts (no higher-rated answerable questions)
                 for psgid in oracle_neg_psgids:
-                    # writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n")
                     writer['qrel_p'].write(f"{data['example_id']} 0 {psgid} 1\n") 
 
     # write

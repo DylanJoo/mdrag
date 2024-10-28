@@ -9,18 +9,34 @@ import argparse
 import json
 import numpy as np
 from tqdm import tqdm
-import glob
+from glob import glob
+from utils import replace_tags, load_topic_data
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default=None)
+    parser.add_argument("--shard_dir", type=str, default=None)
+    parser.add_argument("--ratings_dir", type=str, default=None)
     parser.add_argument("--split", type=str, default="train")
     parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--random_subset", type=int, default=-1)
     args = parser.parse_args()
 
+    ## topic subset
+    topics_all = []
+    logger.info("load topics ...") 
+    for file in tqdm(glob(os.path.join(args.shard_dir, f"topics-gen/*-{args.split}-*.json"))):
+        topic = load_topic_data(file)
+        topics_all += topic
+    if args.random_subset > 0:
+        np.random.seed(args.random_subset)
+        selected = np.random.randint(0, len(topics_all), args.random_subset)
+        topics_all = {r['example_id']: r['texts'] for i, r in enumerate(topics_all) if i in selected}
+    else:
+        topics_all = {r['example_id']: r['texts'] for r in topics_all}
+
     # Load context
-    files = glob.glob(os.path.join(args.dataset_dir, f"*-{args.split}-*"))
-    print(files)
+    files = glob(os.path.join(args.ratings_dir, f"*-{args.split}-*"))
 
     passages = {}
     documents = {}
@@ -36,6 +52,9 @@ if __name__ == "__main__":
                 ratings = np.array(ratings)
 
                 # sanity check
+                if example_id not in topics_all:
+                    continue 
+
                 if ratings.shape != (n_passages, len(questions)):
                     logging.warnings(f"example id: {example_id} has incorrect number of passages: {n_passages} ({len(questions)} questions).")
                     continue
@@ -61,7 +80,7 @@ if __name__ == "__main__":
         for docid, document in documents.items():
             f.write(json.dumps({"id": docid, "contents": document}, ensure_ascii=False)+'\n')
 
-    output_dir = os.path.join(args.output_dir, 'passages')
+    output_dir = os.path.join(args.output_dir, f'passages')
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, f"{args.split}_psgs.jsonl")
     with open(output_file, 'w') as f:
