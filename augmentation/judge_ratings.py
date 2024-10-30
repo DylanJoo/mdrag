@@ -89,7 +89,6 @@ def main():
         from llm.base import LLM
         llm = LLM(args)
 
-
     logger.info("load questions...") 
     questions_all = []
     for file in tqdm(glob(os.path.join(args.shard_dir, f"ques-gen/*-{args.split}-*.json"))):

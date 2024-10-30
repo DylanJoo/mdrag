@@ -15,20 +15,21 @@ conda activate rag
 cd ~/mdrag
 
 # Start the experiment.
-# for split in test testb;do
-for split in test;do
-    for retriever in bm25 contriever splade;do
-        python3 summarize_ind.py \
-            --model_name_or_path fangyuan/nq_abstractive_compressor \
-            --model_class seq2seq \
-            --template 'Question: \n Document: {P}\n Summary: ' \
-            --batch_size 128 \
-            --topk 30 \
-            --max_length 512 \
-            --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
-            --collection ${DATASET_DIR}/RACE/passages \
-            --run retrieval/baseline.${retriever}.race-${split}.passages.run \
-            --output_file outputs/race-${split}-${retriever}-top30-recomp.jsonl \
-            --truncate 5
-    done
+for split in testb test;do
+rm outputs/${split}_recomp_psgs.jsonl
+for run_file in runs/baseline.*.race-${split}.passages.run;do
+    python3 summarize_ind.py \
+        --model_name_or_path fangyuan/nq_abstractive_compressor \
+        --model_class seq2seq \
+        --template 'Question: \n Document: {P}\n Summary: ' \
+        --max_length 512 \
+        --batch_size 128 \
+        --run_file ${run_file} \
+        --topk 100 \
+        --topic_file ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
+        --passage_dir ${DATASET_DIR}/RACE/passages \
+        --output_file outputs/${split}_recomp_psgs.jsonl \
+        --truncate 5
 done
+done
+

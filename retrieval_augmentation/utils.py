@@ -23,20 +23,45 @@ def batch_iterator(iterable, size=1, return_index=False):
         else:
             yield iterable[ndx:min(ndx + size, l)]
 
-def load_collection(path):
-    data = defaultdict(lambda: None)
+def load_topics(path):
+    topics = {}
+
+    with open(path) as f:
+        for line in f:
+            id, text = line.split('\t')
+            topics[id] = text.strip()
+    return topics
+
+def load_passages(path):
+    passages = {}
+    if os.path.exists(path) is False:
+        return passages
 
     if os.path.isdir(path):
         paths = glob(os.path.join(path, f"*.jsonl"))
     else:
         paths = [path]
 
-    for path in paths:
-        with open(path) as f:
+    for file in paths:
+        with open(file) as f:
             for line in f:
                 item = json.loads(line.strip())
-                data[item['id']] = item['contents']
-    return data
+                example_id = item['id']
+                passages[example_id] = item['contents']
+    return passages
+
+def load_judgements(path):
+    judgements = defaultdict(lambda: defaultdict(lambda: None))
+    contexts = defaultdict(lambda: None)
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            for line in f:
+                data = json.loads(line.strip())
+                example_id = data['example_id']
+                judgements[example_id].update({data['pid']: data['rating']})
+                if 'contents' in data.keys():
+                    contexts[example_id].update({data['pid']: data['contents']})
+    return judgements, contexts
 
 def load_run(path):
     data = defaultdict(list)
