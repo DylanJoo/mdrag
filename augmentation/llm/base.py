@@ -19,7 +19,6 @@ class vLLM:
     def __init__(self, args):
         self.model = v_llm(
             args.model, 
-            quantization=args.quant,
             enforce_eager=True,
             pipeline_parallel_size=(args.num_gpus or 1)
         )

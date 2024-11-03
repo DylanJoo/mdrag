@@ -15,19 +15,19 @@ conda activate rag
 cd ~/mdrag
 
 ## 1. Extract the oracle context (report)
-# split=test
-# python3 oracle.py \
-#     --multi_news_file ${DATASET_DIR}/multi_news \
-#     --split ${split} \
-#     --output_file outputs/race-${split}-oracle-report.jsonl \
-#     --tag report 
-#
-# split=testb
-# python3 oracle.py \
-#     --duc04_file ${DATASET_DIR}/duc04 \
-#     --split ${split} \
-#     --output_file outputs/race-${split}-oracle-report.jsonl \
-#     --tag report 
+split=test
+python3 oracle.py \
+    --multi_news_file ${DATASET_DIR}/multi_news \
+    --split ${split} \
+    --output_file outputs/${split}_oracle-report.jsonl \
+    --tag report 
+
+split=testb
+python3 oracle.py \
+    --duc04_file ${DATASET_DIR}/duc04 \
+    --split ${split} \
+    --output_file outputs/${split}_oracle-report.jsonl \
+    --tag report 
 
 ## 2. Judge the context using llama3.1-8b (GPU)
 ## [Note] testb has 15 EXAM questions
@@ -68,32 +68,32 @@ cd ~/mdrag
 
 ## 3. Evaluate the RACE knowledge
 # oracle-report
-for split in test testb;do
-python3 -m evaluation \
-    --judgement_file judgements/race-${split}-oracle-report.jsonl \
-    --dataset_file ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b/metallama3.1-8b-${split}-0.jsonl \
-    --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag report
-
-# oracle-passages
-python3 -m evaluation \
-    --dataset_file ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b/metallama3.1-8b-${split}-0.jsonl \
-    --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --tag passages
-
-# oracle-passages-min
-python3 -m evaluation \
-    --dataset_file ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b/metallama3.1-8b-${split}-0.jsonl \
-    --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
-    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --threshold 3 \
-    --rel_threshold 3 \
-    --tag passages-min
-done
+# for split in test testb;do
+# python3 -m evaluation \
+#     --judgement_file judgements/race-${split}-oracle-report.jsonl \
+#     --dataset_file ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b/metallama3.1-8b-${split}-0.jsonl \
+#     --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
+#     --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --threshold 3 \
+#     --tag report
+#
+# # oracle-passages
+# python3 -m evaluation \
+#     --dataset_file ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b/metallama3.1-8b-${split}-0.jsonl \
+#     --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
+#     --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --threshold 3 \
+#     --tag passages
+#
+# # oracle-passages-min
+# python3 -m evaluation \
+#     --dataset_file ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b/metallama3.1-8b-${split}-0.jsonl \
+#     --topics ${DATASET_DIR}/RACE/ranking_1/${split}_topics_report_request.tsv \
+#     --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --threshold 3 \
+#     --rel_threshold 3 \
+#     --tag passages-min
+# done

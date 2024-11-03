@@ -1,8 +1,3 @@
-import logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 import re
 import os
 import yaml
@@ -12,8 +7,6 @@ import json
 import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
-
-from retrieval_augmentation.utils import load_collection
 
 def normalize_list(string_list):
     for i in range(len(string_list)):
@@ -116,34 +109,17 @@ def main():
         })
         dataset = duc04
 
-    if args.qrel is not None:
-        qrels = load_qrel(args.qrel)
-        passages = load_collection(args.collection)
-
-    # Sample quick test
-    if args.quick_test is not None:
-        np.random.seed(args.seed)
-        ids = np.random.choice(len(dataset), args.quick_test, replace=False)
-        dataset = [dataset[int(idx)] for idx in ids]
-    else:
-        if args.split == 'train':
-            dataset = [dataset[idx] for idx in range(len(dataset))]
-        else:
-            dataset = [dataset[idx] for idx in range(min(5000, len(dataset)))]
-        ids = list(range(len(dataset)))
+    ids = list(range(len(dataset)))
 
     # Save data as ...
     writer = open(args.output_file, 'w')
 
-    logger.info("Save dataset as vanilla baseline ...") 
     for idx, item in enumerate(tqdm(dataset)):
         example_id = f"{item['mds-source']}-{args.split}-{ids[idx]}"
-        if 'report' in args.tag:
-            item = {
-                'example_id': example_id, 
-                'type': f'oracle-report (md-summary)',
-                'output': normalize_text(item['summary'])
-            }
+        item = {
+            'id': f"{example_id}:report", 
+            'contents': normalize_text(item['summary'])
+        }
         # only report has to rerun the exps
         writer.write(json.dumps(item, ensure_ascii=False)+'\n')
 

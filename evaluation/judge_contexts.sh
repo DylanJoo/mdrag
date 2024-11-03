@@ -14,14 +14,14 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-split=test
-for aug_method in recomp;do
+split=testb
+for aug_method in zs-llmqfsum zs-llmsum;do
     python3 -m evaluation.llm_judge \
         --config configs/mds-decontextualize.llama3-8b.yaml \
         --topic_question_file ${DATASET_DIR}/RACE/ranking/${split}_topics_exam_questions.jsonl \
         --context_file outputs/${split}_${aug_method}_psgs.jsonl \
         --output_file outputs/${split}_${aug_method}_judgements.jsonl  \
-        --n_questions 10 \
+        --n_questions 15 \
         --split ${split} \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
         --model_tag metallama3.1-8b \
@@ -32,14 +32,14 @@ for aug_method in recomp;do
         --ampere_gpu 
 done
 
-split=testb
-for aug_method in recomp;do
+split=test
+for aug_method in zs-llmqfsum zs-llmsum;do
     python3 -m evaluation.llm_judge \
         --config configs/mds-decontextualize.llama3-8b.yaml \
         --topic_question_file ${DATASET_DIR}/RACE/ranking/${split}_topics_exam_questions.jsonl \
         --context_file outputs/${split}_${aug_method}_psgs.jsonl \
         --output_file outputs/${split}_${aug_method}_judgements.jsonl  \
-        --n_questions 15 \
+        --n_questions 10 \
         --split ${split} \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
         --model_tag metallama3.1-8b \

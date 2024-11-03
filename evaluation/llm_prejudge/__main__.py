@@ -14,7 +14,7 @@ from collections import defaultdict
 from tqdm import tqdm
 from glob import glob
 
-from transformers import AutoTokenizer
+# from transformers import AutoTokenizer
 
 def load_qrel(path, threshold=0):
     data = defaultdict(list)
@@ -40,7 +40,8 @@ def load_judgements(path, report_file=None):
             for line in f:
                 data = json.loads(line.strip())
                 example_id = data['example_id']
-                judgements[example_id].update({f'{example_id}_report': data['rating']})
+                pid = f"{example_id}:report"
+                judgements[example_id].update({pid: data['rating']})
 
     return judgements
 
@@ -55,20 +56,13 @@ def load_run(path, topk=9999):
                 run[example_id].append(psgid)
     return run
 
-def load_passages(dir, report_file=None):
+def load_passages(dir):
     passages = {}
     for file in glob(os.path.join(dir, "*jsonl")):
         with open(file, 'r') as f:
             for line in f:
                 item = json.loads(line.strip())
                 passages[item["id"]] = item['contents']
-
-    if report_file is not None:
-        with open(report_file, 'r') as f:
-            for line in f:
-                item = json.loads(line.strip())
-                example_id = item['example_id']
-                passage[example_id] = item['contents']
     return passages
 
 
@@ -91,13 +85,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.generator_name)
+    # tokenizer = AutoTokenizer.from_pretrained(args.generator_name)
 
     # load qrels, pre-calculated judge
     qrels = load_qrel(args.qrels, threshold=args.rel_threshold)
     runs = load_run(args.run_file, args.topk)
     judgements = load_judgements(args.judgement_file, report_file=args.report_file)
-    passages = load_passages(args.passage_dir, report_file=args.report_file)
+    passages = load_passages(args.passage_dir)
+    lengths = [len(p.split()) for p in passages.values()]
+    dummy_passage = '0 ' * (sum(lengths) // len(lengths))
 
     # load graded passages
     outputs = {'coverage': [], 'density': [], 'num_segs': [], 'num_tokens': []}
@@ -110,8 +106,8 @@ if __name__ == "__main__":
         n_questions = args.n_questions
 
         if 'oracle-report' in args.tag:
-            psgids = [f'{example_id}_report']
-        if 'oracle-passages' in args.tag:
+            psgids = [f'{example_id}:report']
+        elif 'oracle-passages' in args.tag:
             psgids = qrels[example_id]
         else:
             psgids = runs[example_id]
@@ -120,7 +116,11 @@ if __name__ == "__main__":
         context = ""
         ratings = [[0] * n_questions]
         for psgid in psgids:
-            context = context + " " + passages[psgid]
+            try:
+                context = context + " " + passages[psgid]
+            except:
+                context = context + " " + dummy_passage # some of the psgs are missing as we only run relevant psg
+
             if (example_id == psgid.split(":")[0]) or (psgid == 'report'):
                 judgement = judgements[example_id][psgid]
                 ratings.append(judgement)
@@ -135,7 +135,8 @@ if __name__ == "__main__":
         outputs['coverage'].append(coverage)
 
         ## calculate density
-        n_tokens = len(tokenizer.tokenize(context))
+        # n_tokens = len(tokenizer.tokenize(context)) 
+        n_tokens = len(context.split())
         density = coverage / n_tokens
         outputs['density'].append(density)
 
@@ -148,9 +149,11 @@ if __name__ == "__main__":
     mean_density = np.mean(outputs['density']) * 100
     mean_num_segments = np.mean(outputs['num_segs'])
     mean_num_tokens = np.mean(outputs['num_tokens'])
-    print(f" # === Evaluation Results === ")
-    print(f" # TAG : {args.tag.replace('topk', str(args.topk))} | {len(outputs['coverage'])} examples")
-    print(f' # Mean Coverage (tau={args.threshold})  : {mean_coverage:.4f}')
-    print(f' # Mean Density % (tau={args.threshold}) : {mean_density:.4f}')
-    print(f' # Mean number of segments  : {mean_num_segments:.2f}')
-    print(f' # Mean number of tokens    : {mean_num_tokens:.2f}\n')
+    num_coverage = len(outputs['coverage'])
+    logger.info(f" # === Evaluation Results === ")
+    logger.info(f" # TAG : {args.tag} | {num_coverage} examples")
+    logger.info(f' # Mean Coverage (tau={args.threshold})  : {mean_coverage:.4f}')
+    logger.info(f' # Mean Density % (tau={args.threshold}) : {mean_density:.4f}')
+    logger.info(f' # Mean number of segments  : {mean_num_segments:.2f}')
+    logger.info(f' # Mean number of tokens    : {mean_num_tokens:.2f}\n')
+    print(f" ## | {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} | {mean_coverage:.4f} | {mean_density:.4f}")
