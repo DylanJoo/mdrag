@@ -56,10 +56,16 @@ def load_run(path, topk=9999):
                 run[example_id].append(psgid)
     return run
 
-def load_passages(dir):
+def load_passages(path):
     passages = {}
-    for file in glob(os.path.join(dir, "*jsonl")):
-        with open(file, 'r') as f:
+    if os.path.isdir(path):
+        for file in glob(os.path.join(path, "*jsonl")):
+            with open(file, 'r') as f:
+                for line in f:
+                    item = json.loads(line.strip())
+                    passages[item["id"]] = item['contents']
+    else:
+        with open(path, 'r') as f:
             for line in f:
                 item = json.loads(line.strip())
                 passages[item["id"]] = item['contents']
@@ -80,7 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("--rel_threshold", type=float, default=1)
 
     parser.add_argument("--report_file", type=str, default=None)
-    parser.add_argument("--passage_dir", type=str, default=None)
+    parser.add_argument("--passage_path", type=str, default=None)
     parser.add_argument("--tag", type=str, default=None)
     args = parser.parse_args()
 
@@ -91,7 +97,7 @@ if __name__ == "__main__":
     qrels = load_qrel(args.qrels, threshold=args.rel_threshold)
     runs = load_run(args.run_file, args.topk)
     judgements = load_judgements(args.judgement_file, report_file=args.report_file)
-    passages = load_passages(args.passage_dir)
+    passages = load_passages(args.passage_path)
     lengths = [len(p.split()) for p in passages.values()]
     dummy_passage = '0 ' * (sum(lengths) // len(lengths))
 
@@ -105,7 +111,7 @@ if __name__ == "__main__":
         # n_questions = ( len(judgements[example_id]['report']) or args.n_questions)
         n_questions = args.n_questions
 
-        if 'oracle-report' in args.tag:
+        if ('oracle-report' in args.tag) or ('llmrg' in args.tag):
             psgids = [f'{example_id}:report']
         elif 'oracle-passages' in args.tag:
             psgids = qrels[example_id]
@@ -125,7 +131,6 @@ if __name__ == "__main__":
                 judgement = judgements[example_id][psgid]
                 ratings.append(judgement)
 
-
         # get maximun ratings
         ratings = np.array(ratings).max(0)
         n_answerable = sum(ratings >= args.threshold)
@@ -142,7 +147,6 @@ if __name__ == "__main__":
 
         outputs['num_segs'].append(len(psgids))
         outputs['num_tokens'].append(n_tokens)
-
 
     # results
     mean_coverage = np.mean(outputs['coverage'])

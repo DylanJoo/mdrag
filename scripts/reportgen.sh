@@ -20,7 +20,7 @@ rm outputs/${split}_zs-llmrg_psgs.jsonl
 python3 reportgen.py \
     --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
     --model_class vllm \
-    --template '{Q} Write the text within the tag <r> and </r>.\n<r>' \
+    --template 'Instruction: {Q}\nWrite a 300 words report as response.\n\nResponse: ' \
     --batch_size 16 \
     --topic_file ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
     --passage_dir ${DATASET_DIR}/RACE/passages \
@@ -31,7 +31,7 @@ rm outputs/${split}_zs-llmrg_psgs.jsonl
 python3 reportgen.py \
     --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
     --model_class vllm \
-    --template '{Q} Write the text within the tag <r> and </r>.\n<r>' \
+    --template 'Instruction: {Q}\nWrite a 300 words report as response.\n\nResponse: ' \
     --batch_size 16 \
     --topic_file ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
     --passage_dir ${DATASET_DIR}/RACE/passages \

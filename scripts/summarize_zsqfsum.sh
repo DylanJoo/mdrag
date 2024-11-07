@@ -43,5 +43,5 @@ for run_file in runs/baseline.*.race-${split}.passages.run;do
         --topk 30 \
         --topic_file ${DATASET_DIR}/RACE/ranking/${split}_topics_report_request.tsv \
         --passage_dir ${DATASET_DIR}/RACE/passages \
-        --output_file outputs/${split}_zs-llqfmsum_psgs.jsonl
+        --output_file outputs/${split}_zs-llmqfsum_psgs.jsonl
 done

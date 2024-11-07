@@ -52,7 +52,7 @@ def main():
     for example_id in topics:
         topic = topics[example_id]
         input_data.append({
-            'example_id': example_id, 'pid': f"{example_id}:reportgen", 
+            'example_id': example_id, 'pid': f"{example_id}:report", 
             'input': args.template.replace("{Q}", topic)
         })
 

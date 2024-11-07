@@ -15,12 +15,12 @@ conda activate rag
 cd ~/mdrag
 
 split=testb
-for aug_method in zs-llmqfsum zs-llmsum;do
+for aug_method in zs-llmrg;do
     python3 -m evaluation.llm_judge \
         --config configs/mds-decontextualize.llama3-8b.yaml \
         --topic_question_file ${DATASET_DIR}/RACE/ranking/${split}_topics_exam_questions.jsonl \
         --context_file outputs/${split}_${aug_method}_psgs.jsonl \
-        --output_file outputs/${split}_${aug_method}_judgements.jsonl  \
+        --output_file judgements/${split}_${aug_method}_judgements.jsonl  \
         --n_questions 15 \
         --split ${split} \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
@@ -33,12 +33,12 @@ for aug_method in zs-llmqfsum zs-llmsum;do
 done
 
 split=test
-for aug_method in zs-llmqfsum zs-llmsum;do
+for aug_method in zs-llmrg;do
     python3 -m evaluation.llm_judge \
         --config configs/mds-decontextualize.llama3-8b.yaml \
         --topic_question_file ${DATASET_DIR}/RACE/ranking/${split}_topics_exam_questions.jsonl \
         --context_file outputs/${split}_${aug_method}_psgs.jsonl \
-        --output_file outputs/${split}_${aug_method}_judgements.jsonl  \
+        --output_file judgements/${split}_${aug_method}_judgements.jsonl  \
         --n_questions 10 \
         --split ${split} \
         --model meta-llama/Meta-Llama-3.1-8B-Instruct \
