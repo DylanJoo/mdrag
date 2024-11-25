@@ -247,7 +247,7 @@ def main():
     if args.shard is not None:
         output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}-{args.shard}.jsonl")
     else:
-        output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}.jsonl")
+        output_file = os.path.join(output_dir, f"{args.model_tag}-{args.split}-0.jsonl")
     with open(output_file, "w") as f:
         for rating in ratings:
             f.write(json.dumps(rating)+'\n')

@@ -22,16 +22,16 @@ for shard_i in 4 ;do
         --ampere_gpu
 done
 
-python3 augmentation/gen_ratings.py \
-    --shard_dir ${DATASET_DIR}/mdrag/shard_data \
-    --config configs/mds-decontextualize.llama3-70b.yaml \
-    --split testb \
-    --model meta-llama/Meta-Llama-3.1-70B-Instruct \
-    --model_tag metallama3.1-70b \
-    --tag ratings-gen \
-    --load_mode api \
-    --temperature 0.7 \
-    --max_new_tokens 2 \
-    --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
-    --n_questions 15 \
-    --ampere_gpu
+# python3 augmentation/gen_ratings.py \
+#     --shard_dir ${DATASET_DIR}/mdrag/shard_data \
+#     --config configs/mds-decontextualize.llama3-70b.yaml \
+#     --split testb \
+#     --model meta-llama/Meta-Llama-3.1-70B-Instruct \
+#     --model_tag metallama3.1-70b \
+#     --tag ratings-gen \
+#     --load_mode api \
+#     --temperature 0.7 \
+#     --max_new_tokens 2 \
+#     --output_dir ${DATASET_DIR}/mdrag/shard_data/ \
+#     --n_questions 15 \
+#     --ampere_gpu
