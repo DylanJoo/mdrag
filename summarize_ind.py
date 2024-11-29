@@ -33,11 +33,13 @@ def main():
     parser.add_argument("--template", type=str, default="title: {T} content: {P}")
     parser.add_argument("--max_length", type=int, default=None)
     parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--query_focus", action='store_true', default=False)
 
     parser.add_argument("--run_file", type=str, default=None)
     parser.add_argument("--topk", type=int, default=9999)
     parser.add_argument("--topic_file", type=str, default=None)
     parser.add_argument("--passage_dir", type=str, default=None)
+    parser.add_argument("--do_irrelevant", action='store_true', default=False)
 
     parser.add_argument("--output_file", type=str, default=None)
     parser.add_argument("--truncate", type=int, default=6)
@@ -53,6 +55,7 @@ def main():
     # load previous results (to avoid rerun)
     summaries = load_passages(args.output_file)
 
+    psgids = []
     input_data = []
     for example_id in run:
         topic = topics[example_id]
@@ -74,7 +77,22 @@ def main():
                     'input': args.template.replace("{Q}", topic).replace("{P}", psg)
                 })
 
+            elif (example_id != psgid.split(':')[0]) and (args.do_irrelevant) and (psgid not in summaries):
+                psg = truncate_and_concat(
+                    psg,
+                    tokenizer=tokenizer,
+                    max_length=args.max_length, 
+                    offset=args.truncate
+                )
+                if psgid not in psgids:
+                    input_data.append({
+                        'example_id': example_id, 'pid': psgid, 
+                        'input': args.template.replace("{Q}", topic).replace("{P}", psg)
+                    })
+                    psgids.append(psgid)
+
     # generate summaries
+    logger.info(f'Existing summaries have {len(summaries)} summaries.')
     logger.info(f'Generate summaries for total {len(input_data)} passages.')
 
     for batch_input_data in tqdm(

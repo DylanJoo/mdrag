@@ -46,8 +46,8 @@ def load_passages(path):
         with open(file) as f:
             for line in f:
                 item = json.loads(line.strip())
-                example_id = item['id']
-                passages[example_id] = item['contents']
+                psgid = item['id']
+                passages[psgid] = item['contents']
     return passages
 
 def load_judgements(path):

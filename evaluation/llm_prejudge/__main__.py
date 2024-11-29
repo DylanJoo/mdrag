@@ -14,7 +14,7 @@ from collections import defaultdict
 from tqdm import tqdm
 from glob import glob
 
-# from transformers import AutoTokenizer
+from transformers import AutoTokenizer
 
 def load_qrel(path, threshold=0):
     data = defaultdict(list)
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # load tokenizer
-    # tokenizer = AutoTokenizer.from_pretrained(args.generator_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.generator_name)
 
     # load qrels, pre-calculated judge
     qrels = load_qrel(args.qrels, threshold=args.rel_threshold)
@@ -125,6 +125,7 @@ if __name__ == "__main__":
             try:
                 context = context + " " + passages[psgid]
             except:
+                logger.info(f"No corresponding passages found for this setting.")
                 context = context + " " + dummy_passage # some of the psgs are missing as we only run relevant psg
 
             if (example_id == psgid.split(":")[0]) or (psgid == 'report'):
@@ -140,8 +141,8 @@ if __name__ == "__main__":
         outputs['coverage'].append(coverage)
 
         ## calculate density
-        # n_tokens = len(tokenizer.tokenize(context)) 
-        n_tokens = len(context.split())
+        n_tokens = len(tokenizer.tokenize(context)) 
+        # n_tokens = len(context.split())
         density = coverage / n_tokens
         outputs['density'].append(density)
 

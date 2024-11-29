@@ -13,50 +13,39 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-# Multi-News Train and test
-# for split in test testb;do
-#     python3 augmentation/create_context_ranking_data.py \
-#         --shard_dir ${DATASET_DIR}/RACE/shard_data \
-#         --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b \
-#         --split ${split} \
-#         --output_dir ${DATASET_DIR}/RACE/ranking_3 \
-#         --n_max_distractors 0 \
-#         --threshold 3
-#
-#     # [analysis] larger grading model
-#     python3 augmentation/create_context_ranking_data.py \
-#         --shard_dir ${DATASET_DIR}/RACE/shard_data \
-#         --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-#         --split ${split} \
-#         --output_dir ${DATASET_DIR}/RACE/ranking \
-#         --n_max_distractors 0 \
-#         --threshold 3
-#
-#     # [analysis] other threshold
-#     for threshold in 1 2 5;do
-#         python3 augmentation/create_context_ranking_data.py \
-#             --shard_dir ${DATASET_DIR}/RACE/shard_data \
-#             --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b \
-#             --split ${split} \
-#             --output_dir ${DATASET_DIR}/RACE/ranking_${threshold} \
-#             --n_max_distractors 0 \
-#             --threshold ${threshold} 
-#     done
-# done
+for split in test testb;do
+    # python3 augmentation/create_context_ranking_data.py \
+    #     --shard_dir ${DATASET_DIR}/RACE/shard_data \
+    #     --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b \
+    #     --split ${split} \
+    #     --output_dir ${DATASET_DIR}/RACE/ranking_3 \
+    #     --n_max_distractors 0 \
+    #     --threshold 3
 
-## [analysis] larger grading model
-python3 augmentation/create_context_ranking_data.py \
-    --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    --split test \
-    --output_dir ${DATASET_DIR}/RACE/ranking \
-    --n_max_distractors 0 \
-    --threshold 3
+    # [analysis] other threshold
+    for threshold in 4 5;do
+        python3 augmentation/create_context_ranking_data.py \
+            --shard_dir ${DATASET_DIR}/RACE/shard_data \
+            --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+            --split ${split} \
+            --output_dir ${DATASET_DIR}/RACE/ranking_${threshold} \
+            --n_max_distractors 0 \
+            --threshold ${threshold} 
+    done
+done
 
-python3 augmentation/create_context_ranking_data.py \
-    --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    --split testb \
-    --output_dir ${DATASET_DIR}/RACE/ranking \
-    --n_max_distractors 0 \
-    --threshold 3
+# python3 augmentation/create_context_ranking_data.py \
+#     --shard_dir ${DATASET_DIR}/RACE/shard_data \
+#     --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+#     --split test \
+#     --output_dir ${DATASET_DIR}/RACE/ranking \
+#     --n_max_distractors 0 \
+#     --threshold 3
+#
+# python3 augmentation/create_context_ranking_data.py \
+#     --shard_dir ${DATASET_DIR}/RACE/shard_data \
+#     --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
+#     --split testb \
+#     --output_dir ${DATASET_DIR}/RACE/ranking \
+#     --n_max_distractors 0 \
+#     --threshold 3
