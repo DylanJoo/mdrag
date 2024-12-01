@@ -56,3 +56,22 @@
  ## | contriever-30-zs-llmqfsum | 30.00 | 5903.66 | 0.7240 | 0.0127
  ## | splade-30-zs-llmqfsum | 30.00 | 5920.74 | 0.7467 | 0.0130
  ## | zs-llmrg | 1.00 | 401.00 | 0.2667 | 0.0665
+ ## | bm25+monoT5-10-bartsum | 10.00 | 491.84 | 0.5520 | 0.1131
+ ## | contriever+monoT5-10-bartsum | 10.00 | 490.20 | 0.5600 | 0.1153
+ ## | splade+monoT5-10-bartsum | 10.00 | 488.42 | 0.5573 | 0.1153
+ ## | bm25+monoT5-20-bartsum | 20.00 | 987.50 | 0.6387 | 0.0650
+ ## | contriever+monoT5-20-bartsum | 20.00 | 985.78 | 0.7000 | 0.0713
+ ## | splade+monoT5-20-bartsum | 20.00 | 987.48 | 0.7093 | 0.0724
+ ## | bm25+monoT5-30-bartsum | 30.00 | 1469.14 | 0.6627 | 0.0452
+ ## | contriever+monoT5-30-bartsum | 30.00 | 1471.76 | 0.7440 | 0.0507
+ ## | splade+monoT5-30-bartsum | 30.00 | 1467.36 | 0.7467 | 0.0512
+ ## | bm25+monoT5-10-recomp | 10.00 | 582.74 | 0.5680 | 0.0980
+ ## | contriever+monoT5-10-recomp | 10.00 | 578.10 | 0.5907 | 0.1019
+ ## | splade+monoT5-10-recomp | 10.00 | 579.72 | 0.5933 | 0.1022
+ ## | bm25+monoT5-20-recomp | 20.00 | 1168.22 | 0.6520 | 0.0561
+ ## | contriever+monoT5-20-recomp | 20.00 | 1155.70 | 0.7147 | 0.0618
+ ## | splade+monoT5-20-recomp | 20.00 | 1160.46 | 0.7160 | 0.0618
+ ## | bm25+monoT5-30-recomp | 30.00 | 1749.10 | 0.6747 | 0.0387
+ ## | contriever+monoT5-30-recomp | 30.00 | 1746.14 | 0.7533 | 0.0431
+ ## | splade+monoT5-30-recomp | 30.00 | 1743.32 | 0.7493 | 0.0430
+ ## | contriever-10-vanilla | 10.00 | 1187.44 | 0.6613 | 0.0559

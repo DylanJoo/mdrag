@@ -14,27 +14,27 @@ conda activate rag
 cd ~/mdrag
 
 # [Oracle]
-# aug_method=oracle-report
-# split=test
-# python3 -m evaluation.llm_prejudge \
-#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-#     --judgement_file judgements/${split}_oracle-report_judgements.jsonl \
-#     --threshold 3 \
-#     --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-#     --rel_threshold 3 \
-#     --n_questions 10 \
-#     --passage_path outputs \
-#     --tag ${aug_method} > ${split}.result
-# split=testb
-# python3 -m evaluation.llm_prejudge \
-#     --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-#     --judgement_file judgements/${split}_oracle-report_judgements.jsonl \
-#     --threshold 3 \
-#     --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-#     --rel_threshold 3 \
-#     --n_questions 15 \
-#     --passage_path outputs \
-#     --tag ${aug_method} > ${split}.result
+aug_method=oracle-report
+split=test
+python3 -m evaluation.llm_prejudge \
+    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --judgement_file judgements/${split}_oracle-report_judgements.jsonl \
+    --threshold 3 \
+    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+    --rel_threshold 3 \
+    --n_questions 10 \
+    --passage_path outputs \
+    --tag ${aug_method} > ${split}.result
+split=testb
+python3 -m evaluation.llm_prejudge \
+    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --judgement_file judgements/${split}_oracle-report_judgements.jsonl \
+    --threshold 3 \
+    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
+    --rel_threshold 3 \
+    --n_questions 15 \
+    --passage_path outputs \
+    --tag ${aug_method} > ${split}.result
 
 # aug_method=oracle-passages
 # for rel_threshold in 1 3;do

@@ -80,6 +80,11 @@ def main():
     for psgid in tqdm(contexts, desc=f'Evaluating context ', total=len(contexts)):
 
         example_id = psgid.split(":")[0]
+
+        # skip the one that have already been done
+        if example_id not in questions_all:
+            continue 
+
         questions = questions_all[example_id]
         context = contexts[psgid]
 
@@ -90,6 +95,7 @@ def main():
         if judgements[example_id][psgid] is not None:
             continue 
 
+        ## no batch here
         for k, question in enumerate(questions):
             prompt = prompt_rating_gen(
                 INST=instruction_rating,
@@ -102,9 +108,7 @@ def main():
                 max_tokens=args.max_new_tokens,
                 min_tokens=1
             )
-            output = output.replace("<|im_end|>", "").rstrip()
-            if output.endswith("End."):
-                output = output[:-len("End.")]
+            output = [o.replace("<|im_end|>", "").rstrip() for o in output][0]
 
             # extract rating
             pattern = re.compile(r"\d|-\d")

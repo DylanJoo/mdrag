@@ -102,11 +102,8 @@ def main():
         batch_inputs = [b.pop('input') for b in batch_input_data]
 
         if args.model_class == 'vllm':
-            outputs = []
-            for inputs in batch_inputs:
-                o = model.generate(inputs, max_new_tokens=512)
-                o = o.split('</s>')[0]
-                outputs.append(o)
+            outputs = model.generate(batch_inputs, max_new_tokens=512)
+            outputs = [o.split('</s>')[0] for o in outputs]
         else:
             tokenized_input = tokenizer(
                 batch_inputs, 
