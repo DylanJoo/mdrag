@@ -1,14 +1,13 @@
 # Set-up the environment.
 cd ~/mdrag
 
-DATASET_DIR=/project/project_465001339/datasets
+DATASET_DIR=/project/project_465001396/dylan/datasets
 
 # Start the experiment.
-# for shard_i in $(seq 0 1);do
-# for shard_i in $(seq 2 3);do
-for shard_i in 4 ;do
+for shard_i in 0;do
     python3 augmentation/gen_ratings.py \
-        --shard ${shard_i} \
+        --shard ${shard_i} --shard_size 10 \
+        --multi_news_file /project/project_465001339/datasets/multi_news \
         --shard_dir ${DATASET_DIR}/mdrag/shard_data \
         --config configs/mds-decontextualize.llama3-70b.yaml \
         --split test \

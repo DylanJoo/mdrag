@@ -12,6 +12,7 @@ import numpy as np
 from tqdm import tqdm
 
 from prompts.mds import *
+from utils import batch_iterator
 
 def normalize_list(string_list):
     for i in range(len(string_list)):
@@ -219,30 +220,26 @@ def main():
     for idx, item in enumerate(tqdm(data, "augmenting", total=len(data))):
         output_array = []
 
-        for prompt in item['docs']['prompt']:
+        for prompt in batch_iterator(item['docs']['prompt'], size=2):
+        # for prompt in item['docs']['prompt']:
+
             if args.load_mode == 'api':
                 output = llm.generate(prompt, max_tokens=args.max_new_tokens)
                 prompt_len = llm.prompt_len
+
+                ## postprocess for consistent format
+                output = output.replace("<|im_end|>", "").rstrip()
+                if output.endswith("End."):
+                    output = output[:-len("End.")]
+                output = output.split('Note: ')[0]
+                output_array.append(output)
+
             else:
-                prompt_len = len(llm.tokenizer.tokenize(prompt))
                 output = llm.generate(prompt, 
-                    max_tokens=min(args.max_new_tokens, args.max_length-prompt_len),
+                    max_tokens=min(args.max_new_tokens, args.max_length),
                 )
-
-            ## postprocess for consistent format
-            output = output.replace("<|im_end|>", "").rstrip()
-            if output.endswith("End."):
-                output = output[:-len("End.")]
-
-            output = output.split('Note: ')[0]
-
-            if output == "":
-                logger.info(f"Original raw output: {output}")
-                output = llm.generate(prompt, 
-                    max_tokens=min(args.max_new_tokens, args.max_length-prompt_len), 
-                    min_tokens=64
-                )
-            output_array.append(output)
+                prompt_len = 512
+                output_array += output
 
         logger.info(f"Example: {item['example_id']} -- {item['shard_id']}")
         logger.info(f"prompt text (length={prompt_len}): {prompt}")
