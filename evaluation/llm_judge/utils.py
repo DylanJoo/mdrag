@@ -40,6 +40,15 @@ def load_judgements(path, report_file=None):
 
     return judgements
 
+def load_topics(path):
+    topics = {}
+    with open(path, 'r') as f:
+        for line in f:
+            item = json.loads(line.strip())
+            example_id = item['example_id']
+            topics[example_id] = replace_tags(item['topic'], tag='r')
+    return topics
+
 def load_questions(path, n=10):
     questions = {}
     with open(path, 'r') as f:
@@ -54,6 +63,8 @@ def replace_tags(sent, tag='q'):
         sent = re.sub(r"\<q\>|\<\/q\>", "\n", sent)
     if tag == 'p':
         sent = re.sub(r"\<p\>|\<\/p\>", "\n", sent)
+    if tag == 't':
+        sent = re.sub(r"\<r\>|\<\/r\>", "\n", sent)
     pattern = re.compile(r"\n+")
     sent = re.sub(pattern, '\n', sent)
     pattern = re.compile(r"^(\d+)*\.")

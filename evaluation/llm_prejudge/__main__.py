@@ -13,6 +13,8 @@ import random
 from collections import defaultdict
 from tqdm import tqdm
 from glob import glob
+import ir_measures
+from ir_measures import RPrec, MAP
 
 from transformers import AutoTokenizer
 
@@ -77,16 +79,18 @@ if __name__ == "__main__":
     parser.add_argument("--generator_name", type=str, default=None)
     parser.add_argument("--run_file", type=str, default=None)
     parser.add_argument("--topk", type=int, default=1000)
+    parser.add_argument("--weighted_factor", type=float, default=1)
+    parser.add_argument("--split", type=str, default='test')
 
     parser.add_argument("--judgement_file", type=str, default=None)
     parser.add_argument("--threshold", type=float, default=3)
-    parser.add_argument("--n_questions", type=int, default=None)
 
     parser.add_argument("--qrels", type=str, default=None, help="File path to the qrels.")
     parser.add_argument("--rel_threshold", type=float, default=1)
 
     parser.add_argument("--report_file", type=str, default=None)
     parser.add_argument("--passage_path", type=str, default=None)
+    parser.add_argument("--dataset_dir", type=str, default=None)
     parser.add_argument("--tag", type=str, default=None)
     args = parser.parse_args()
 
@@ -99,10 +103,26 @@ if __name__ == "__main__":
     qrels_overlapped = [q for q in qrels if q in qrels_70b]
 
     runs = load_run(args.run_file, args.topk)
-    judgements = load_judgements(args.judgement_file, report_file=args.report_file)
-    passages = load_passages(args.passage_path)
+
+    # augmented context
+    judgements_base = load_judgements(
+        os.path.join(args.dataset_dir, f'ranking/{args.split}_judgements.jsonl')
+    )
+    passages_base = load_passages(
+        os.path.join(args.dataset_dir, f'passages/{args.split}_psgs.jsonl')
+    )
+
+    # augmented context
+    if 'vanilla' in args.tag:
+        judgements = judgements_base
+        passages = passages_base
+    else:
+        judgements = load_judgements(args.judgement_file, report_file=args.report_file)
+        passages = load_passages(args.passage_path)
+
     lengths = [len(p.split()) for p in passages.values()]
     dummy_passage = '0 ' * (sum(lengths) // len(lengths))
+    n_questions = 10 if args.split == 'test' else 15
 
     # load graded passages
     outputs = {'coverage': [], 'density': [], 'num_segs': [], 'num_tokens': []}
@@ -110,27 +130,30 @@ if __name__ == "__main__":
     # oracle-report
     for example_id in qrels_overlapped:
 
-        # maximum of answerable questions
-        # n_questions = ( len(judgements[example_id]['report']) or args.n_questions)
-        n_questions = args.n_questions
+        # [oracle] inforamtion 
+        ## upper bound of answerability --> cover
+        psgids = [psgid for psgid in qrels[example_id]]
+        judgement_oracle = np.array([judgements_base[example_id][psgid] for psgid in psgids]).max(0)
+        answerable = judgement_oracle >= args.threshold
 
+        ## upper bound of context length --> density 
+        n_tokens_oracle = len(tokenizer.tokenize(
+            " ".join([passages_base[psgid] for psgid in psgids])
+        ))
+        density_based = sum(answerable) / (1+n_tokens_oracle)
+
+        # [retrieval-augmented] context information
         if ('oracle-report' in args.tag) or ('llmrg' in args.tag):
             psgids = [f'{example_id}:report']
-        elif 'oracle-passages' in args.tag:
-            psgids = qrels[example_id]
-        else:
+        if runs is not None:
             psgids = runs[example_id]
 
         # collection prejudged ratings
         context = ""
         ratings = [[0] * n_questions]
         for psgid in psgids:
-            try:
-                context = context + " " + passages[psgid]
-            except:
-                logger.info(f"No corresponding passages found for this setting.")
-                context = context + " " + dummy_passage # some of the psgs are missing as we only run relevant psg
 
+            ## answerbaility 
             if (example_id == psgid.split(":")[0]) or (psgid == 'report'):
                 judgement = judgements[example_id][psgid]
                 ratings.append(judgement)
@@ -138,33 +161,53 @@ if __name__ == "__main__":
                 if judgement is None:
                     logger.info(f"No judgement found.")
 
+            ## context length 
+            try:
+                context = context + " " + passages[psgid]
+            except:
+                logger.info("No corresponding passages found for this setting.") 
+                logger.info(f"You need to augment this passage {psgid} and add it to outputs.")
+                logger.info(f"The evaluation results are computed by dummy passage for now. ")
+                context = context + " " + dummy_passage 
+
         # get maximun ratings
         ratings = np.array(ratings).max(0)
-        n_answerable = sum(ratings >= args.threshold)
 
         ## calculate coverage
-        coverage = n_answerable / n_questions
+        coverage = sum(ratings[answerable] >= args.threshold) / sum(answerable)
         outputs['coverage'].append(coverage)
 
         ## calculate density
         n_tokens = len(tokenizer.tokenize(context)) 
-        # n_tokens = len(context.split())
         density = coverage / n_tokens
-        outputs['density'].append(density)
-
+        norm_density = (density / density_based) ** args.weighted_factor
+        outputs['density'].append(norm_density)
         outputs['num_segs'].append(len(psgids))
         outputs['num_tokens'].append(n_tokens)
 
     # results
     mean_coverage = np.mean(outputs['coverage'])
-    mean_density = np.mean(outputs['density']) * 100
+    mean_density = np.mean(outputs['density'])
     mean_num_segments = np.mean(outputs['num_segs'])
     mean_num_tokens = np.mean(outputs['num_tokens'])
     num_coverage = len(outputs['coverage'])
+
+    # results from irmeasures
+    qrels = ir_measures.read_trec_qrels(args.qrels)
+    runs = ir_measures.read_trec_run(args.run_file)
+    rank_results = ir_measures.calc_aggregate([RPrec(rel=3), RPrec(rel=2), RPrec, MAP], qrels, runs)
+    mean_rprec = (rank_results[RPrec(rel=3)], rank_results[RPrec(rel=2)], rank_results[RPrec])
+    mean_ap = rank_results[MAP]
+
     logger.info(f" # === Evaluation Results === ")
     logger.info(f" # TAG : {args.tag} | {num_coverage} examples")
-    logger.info(f' # Mean Coverage (tau={args.threshold})  : {mean_coverage:.4f}')
-    logger.info(f' # Mean Density % (tau={args.threshold}) : {mean_density:.4f}')
-    logger.info(f' # Mean number of segments  : {mean_num_segments:.2f}')
-    logger.info(f' # Mean number of tokens    : {mean_num_tokens:.2f}\n')
-    print(f"  {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} | {mean_coverage:.4f} | {mean_density:.4f}")
+    logger.info(f' # Mean Coverage     (tau={args.threshold}) : {mean_coverage:.4f}')
+    logger.info(f' # Mean Norm-Density (tau={args.threshold}) : {mean_density:.4f}')
+    logger.info(f' # RPrec (mu=3/2/1)  (tau={args.threshold}) : {mean_rprec[0]:.4f}/ {mean_rprec[1]:.4f}/ {mean_rprec[2]:.4f}')
+    logger.info(f' # MAP               (tau={args.threshold}) : {mean_ap:.4f}')
+    logger.info(f' # Mean number of segments     : {mean_num_segments:.2f}')
+    logger.info(f' # Mean number of tokens       : {mean_num_tokens:.2f}\n')
+
+    print(f"  {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} |" + \
+          f"{mean_coverage:.4f} | {mean_density:.4f} |" + \
+          f" {mean_rprec[0]:.4f} - {mean_rprec[1]:.4f} - {mean_rprec[2]:.4f} | {mean_ap:.4f}")

@@ -14,22 +14,23 @@ conda activate rag
 cd ~/mdrag
 
 # [Bartsum]
-aug_method=bartsum
-aug_method=recomp
-# for retriever in bm25 contriever splade;do
-for retriever in bm25;do
-for topk in 30;do
+for aug_method in bartsum;do
+for retriever in contriever;do
+for topk in 10;do
     split=testb
     python3 -m evaluation.llm_prejudge \
         --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --judgement_file judgements/${split}_${aug_method}_judgements.jsonl \
-        --threshold 3 \
         --run_file runs/baseline.${retriever}.race-${split}.passages.run \
         --topk ${topk} \
+        --weighted_factor 0.25 \
+        --split ${split} \
+        --judgement_file judgements/${split}_${aug_method}_judgements.jsonl \
+        --threshold 3 \
         --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-        --n_questions 15 \
+        --rel_threshold 3 \
         --passage_path outputs/${split}_${aug_method}_psgs.jsonl \
+        --dataset_dir ${DATASET_DIR}/RACE \
         --tag ${retriever}-${topk}-${aug_method} 
 done
 done
-
+done
