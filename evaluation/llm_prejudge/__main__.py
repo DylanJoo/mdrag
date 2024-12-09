@@ -95,6 +95,9 @@ if __name__ == "__main__":
 
     # load qrels, pre-calculated judge
     qrels = load_qrel(args.qrels, threshold=args.rel_threshold)
+    qrels_70b = load_qrel(args.qrels.replace('ranking', 'ranking_70b'), threshold=args.rel_threshold)
+    qrels_overlapped = [q for q in qrels if q in qrels_70b]
+
     runs = load_run(args.run_file, args.topk)
     judgements = load_judgements(args.judgement_file, report_file=args.report_file)
     passages = load_passages(args.passage_path)
@@ -105,7 +108,7 @@ if __name__ == "__main__":
     outputs = {'coverage': [], 'density': [], 'num_segs': [], 'num_tokens': []}
 
     # oracle-report
-    for example_id in qrels:
+    for example_id in qrels_overlapped:
 
         # maximum of answerable questions
         # n_questions = ( len(judgements[example_id]['report']) or args.n_questions)
@@ -131,6 +134,9 @@ if __name__ == "__main__":
             if (example_id == psgid.split(":")[0]) or (psgid == 'report'):
                 judgement = judgements[example_id][psgid]
                 ratings.append(judgement)
+
+                if judgement is None:
+                    logger.info(f"No judgement found.")
 
         # get maximun ratings
         ratings = np.array(ratings).max(0)
@@ -161,4 +167,4 @@ if __name__ == "__main__":
     logger.info(f' # Mean Density % (tau={args.threshold}) : {mean_density:.4f}')
     logger.info(f' # Mean number of segments  : {mean_num_segments:.2f}')
     logger.info(f' # Mean number of tokens    : {mean_num_tokens:.2f}\n')
-    print(f" ## | {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} | {mean_coverage:.4f} | {mean_density:.4f}")
+    print(f"  {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} | {mean_coverage:.4f} | {mean_density:.4f}")

@@ -1,0 +1,10 @@
+  contriever-10-vanilla | 10.00 | 1148.90 | 0.6078 | 0.0529
+  contriever-20-vanilla | 20.00 | 2297.08 | 0.6645 | 0.0289
+  contriever-30-vanilla | 30.00 | 3443.93 | 0.6918 | 0.0201
+  contriever-10-vanilla | 10.00 | 1146.44 | 0.6779 | 0.0594
+  contriever+monoT5-10-recomp | 10.00 | 572.91 | 0.5362 | 0.0939
+  contriever+monoT5-20-recomp | 20.00 | 1142.44 | 0.5744 | 0.0503
+  contriever+monoT5-30-recomp | 30.00 | 1712.65 | 0.5897 | 0.0344
+  contriever+monoT5-10-bartsum | 10.00 | 487.75 | 0.5129 | 0.1052
+  contriever+monoT5-20-bartsum | 20.00 | 973.12 | 0.5538 | 0.0569
+  contriever+monoT5-30-bartsum | 30.00 | 1460.01 | 0.5702 | 0.0390

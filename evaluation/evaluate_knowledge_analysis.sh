@@ -68,7 +68,7 @@ for retriever in bm25 contriever splade;do
     python3 -m evaluation.llm_prejudge \
         --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
         --judgement_file ${DATASET_DIR}/RACE/ranking/${split}_judgements.jsonl \
-        --threshold 3 \
+        --threshold 1 \
         --run_file runs/baseline.${retriever}.race-${split}.passages.run \
         --topk ${topk} \
         --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
@@ -79,7 +79,7 @@ for retriever in bm25 contriever splade;do
     python3 -m evaluation.llm_prejudge \
         --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
         --judgement_file ${DATASET_DIR}/RACE/ranking/${split}_judgements.jsonl \
-        --threshold 3 \
+        --threshold 1 \
         --run_file runs/baseline.${retriever}.race-${split}.passages.run \
         --topk ${topk} \
         --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
@@ -89,7 +89,7 @@ for retriever in bm25 contriever splade;do
 done
 done
 
-### Analysis 1: vanilla + reranking
+### [vanilla + reranking]
 aug_method=vanilla+reranking
 for topk in 10 20 30;do
 for retriever in bm25 contriever splade;do
@@ -118,7 +118,7 @@ for retriever in bm25 contriever splade;do
 done
 done
 
-### Analysis 2: summary + reranking
+### [summary + reranking]
 for aug_method in recomp bartsum;do
 for topk in 10 20 30;do
 for retriever in bm25 contriever splade;do
@@ -132,7 +132,7 @@ for retriever in bm25 contriever splade;do
         --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
         --n_questions 10 \
         --passage_path outputs/${split}_${aug_method}_psgs.jsonl \
-        --tag ${retriever}+reranking-${topk}-${aug_method} >> ${split}.result
+        --tag ${retriever}-${topk}-${aug_method}+reranking >> ${split}.result
     split=testb
     python3 -m evaluation.llm_prejudge \
         --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
@@ -143,7 +143,7 @@ for retriever in bm25 contriever splade;do
         --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
         --n_questions 15 \
         --passage_path outputs/${split}_${aug_method}_psgs.jsonl \
-        --tag ${retriever}+reranking-${topk}-${aug_method} >> ${split}.result
+        --tag ${retriever}-${topk}-${aug_method}+reranking >> ${split}.result
 done
 done
 done

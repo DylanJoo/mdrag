@@ -26,19 +26,3 @@ class API:
         output = self.completion.choices[0].text
         return output
 
-# Using CURL
-# body = """{ 
-#     "model": "<model>",
-#     "temperature": <temperature>,
-#     "top_p": <top_p>,
-#     "max_tokens": <max_tokens>,
-#     "min_tokens": <min_tokens>,
-#     "prompt": "<prompt>"
-# }"""
-# body = body.replace("<model>", self.args.model)
-# body = body.replace("<temperature>", str(self.args.temperature))
-# body = body.replace("<top_p>", str(self.args.top_p))
-# body = body.replace("<max_tokens>", str(max_tokens))
-# body = body.replace("<min_tokens>", str(min_tokens))
-# # body = body.replace("<prompt>", x)
-# print(body)
