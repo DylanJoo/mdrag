@@ -55,7 +55,7 @@ python3 -m evaluation.llm_prejudge \
     --judgement_file judgements/${split}_oracle-report_judgements.jsonl \
     --threshold 3 \
     --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-    --rel_threshold 3 \
+    --rel_subset 3 \
     --split ${split} \
     --dataset_dir ${DATASET_DIR}/RACE \
     --passage_path ${DATASET_DIR}/RACE/passages \

@@ -8,17 +8,14 @@ import re
 import argparse
 import json
 import numpy as np
-from copy import copy
-import random
 from collections import defaultdict
 from tqdm import tqdm
 from glob import glob
 import ir_measures
 from ir_measures import RPrec, MAP
-
 from transformers import AutoTokenizer
 
-def load_qrel(path, threshold=0):
+def load_qrel(path, threshold=1):
     data = defaultdict(list)
     if path is None:
         return None
@@ -83,10 +80,8 @@ if __name__ == "__main__":
     parser.add_argument("--split", type=str, default='test')
 
     parser.add_argument("--judgement_file", type=str, default=None)
-    parser.add_argument("--threshold", type=float, default=3)
-
-    parser.add_argument("--qrels", type=str, default=None, help="File path to the qrels.")
-    parser.add_argument("--rel_threshold", type=float, default=1)
+    parser.add_argument("--threshold", type=int, default=3)
+    parser.add_argument("--rel_subset", type=int, default=1)
 
     parser.add_argument("--report_file", type=str, default=None)
     parser.add_argument("--passage_path", type=str, default=None)
@@ -98,15 +93,17 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(args.generator_name)
 
     # load qrels, pre-calculated judge
-    qrels = load_qrel(args.qrels, threshold=args.rel_threshold)
-    qrels_70b = load_qrel(args.qrels.replace('ranking', 'ranking_70b'), threshold=args.rel_threshold)
-    qrels_overlapped = [q for q in qrels if q in qrels_70b]
+    qrels = load_qrel(
+        os.path.join(args.dataset_dir, f'ranking_{args.threshold}/{args.split}_qrels_oracle_context_pr.txt'),
+        threshold=args.rel_subset
+    )
+    topic_ids = [q for q in qrels]
 
     runs = load_run(args.run_file, args.topk)
 
     # augmented context
     judgements_base = load_judgements(
-        os.path.join(args.dataset_dir, f'ranking/{args.split}_judgements.jsonl')
+        os.path.join(args.dataset_dir, f'ranking_{args.threshold}/{args.split}_judgements.jsonl')
     )
     passages_base = load_passages(
         os.path.join(args.dataset_dir, f'passages/{args.split}_psgs.jsonl')
@@ -128,7 +125,7 @@ if __name__ == "__main__":
     outputs = {'coverage': [], 'density': [], 'num_segs': [], 'num_tokens': []}
 
     # oracle-report
-    for example_id in qrels_overlapped:
+    for example_id in qrels:
 
         # [oracle] inforamtion 
         ## upper bound of answerability --> cover
@@ -192,18 +189,25 @@ if __name__ == "__main__":
     mean_num_tokens = np.mean(outputs['num_tokens'])
     num_coverage = len(outputs['coverage'])
 
-    # results from irmeasures
-    qrels = ir_measures.read_trec_qrels(args.qrels)
-    runs = ir_measures.read_trec_run(args.run_file)
-    rank_results = ir_measures.calc_aggregate([RPrec(rel=3), RPrec(rel=2), RPrec, MAP], qrels, runs)
-    mean_rprec = (rank_results[RPrec(rel=3)], rank_results[RPrec(rel=2)], rank_results[RPrec])
-    mean_ap = rank_results[MAP]
+    # results from ir_measures if have runs
+    if runs is not None:
+        qrels = ir_measures.read_trec_qrels(
+            os.path.join(args.dataset_dir, f'ranking_{args.threshold}/{args.split}_judgements.jsonl')
+        )
+        runs = ir_measures.read_trec_run(args.run_file)
+        rank_results = ir_measures.calc_aggregate([RPrec(rel=3), RPrec(rel=2), RPrec, MAP], qrels, runs)
+        mean_rprec = (rank_results[RPrec(rel=3)], rank_results[RPrec(rel=2)], rank_results[RPrec])
+        mean_ap = rank_results[MAP]
+    else:
+        mean_rprec = (-1, -1, -1)
+        mean_ap = -1
 
+    # print results
     logger.info(f" # === Evaluation Results === ")
     logger.info(f" # TAG : {args.tag} | {num_coverage} examples")
     logger.info(f' # Mean Coverage     (tau={args.threshold}) : {mean_coverage:.4f}')
     logger.info(f' # Mean Norm-Density (tau={args.threshold}) : {mean_density:.4f}')
-    logger.info(f' # RPrec (mu=3/2/1)  (tau={args.threshold}) : {mean_rprec[0]:.4f}/ {mean_rprec[1]:.4f}/ {mean_rprec[2]:.4f}')
+    logger.info(f' # RPrec (mu=3/2/1)  (tau={args.threshold}) : {mean_rprec[0]:.4f}, {mean_rprec[1]:.4f}, {mean_rprec[2]:.4f}')
     logger.info(f' # MAP               (tau={args.threshold}) : {mean_ap:.4f}')
     logger.info(f' # Mean number of segments     : {mean_num_segments:.2f}')
     logger.info(f' # Mean number of tokens       : {mean_num_tokens:.2f}\n')
