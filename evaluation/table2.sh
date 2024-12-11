@@ -14,6 +14,7 @@ conda activate rag
 cd ~/mdrag
 
 TAU=3
+W=0.5
 
 # [Oracle]
 aug_method=oracle-report
@@ -24,7 +25,7 @@ python3 -m evaluation.llm_prejudge \
     --rel_subset 3 \
     --split ${split} \
     --threshold ${TAU} \
-    --weighted_factor 0.25 \
+    --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/outputs/${split}_${aug_method}_psgs.jsonl \
     --judgement_file ${DATASET_DIR}/crux/judgements/${split}_${aug_method}_judgements.jsonl \
     --tag ${aug_method} > ${split}.table2
@@ -39,7 +40,7 @@ python3 -m evaluation.llm_prejudge \
     --rel_subset ${mu} \
     --split ${split} \
     --threshold ${TAU} \
-    --weighted_factor 0.25 \
+    --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/passages/${split}_psgs.jsonl \
     --judgement_file ${DATASET_DIR}/crux/ranking_${TAU}/${split}_judgements.jsonl \
     --tag ${aug_method}' (mu='${mu}')'  >> ${split}.table2
@@ -57,7 +58,7 @@ python3 -m evaluation.llm_prejudge \
     --rel_subset 3 \
     --split ${split} \
     --threshold ${TAU} \
-    --weighted_factor 0.25 \
+    --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/passages \
     --judgement_file ${DATASET_DIR}/crux/ranking_${TAU}/${split}_judgements.jsonl \
     --run_file runs/baseline.${retriever}.race-${split}.passages.run \
@@ -77,7 +78,7 @@ python3 -m evaluation.llm_prejudge \
     --rel_subset 3 \
     --split ${split} \
     --threshold ${TAU} \
-    --weighted_factor 0.25 \
+    --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/outputs/${split}_${aug_method}_psgs.jsonl \
     --judgement_file ${DATASET_DIR}/crux/judgements/${split}_${aug_method}_judgements.jsonl \
     --run_file runs/baseline.${retriever}.race-${split}.passages.run \

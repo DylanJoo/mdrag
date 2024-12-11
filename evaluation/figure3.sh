@@ -17,6 +17,7 @@ rm -rf test.figure3
 rm -rf testb.figure3
 
 TAU=3
+W=0.5
 
 # [vanilla]
 aug_method=vanilla
@@ -29,7 +30,7 @@ python3 -m evaluation.llm_prejudge \
     --rel_subset 3 \
     --split ${split} \
     --threshold ${TAU} \
-    --weighted_factor 0.25 \
+    --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/passages \
     --judgement_file ${DATASET_DIR}/crux/ranking_${TAU}/${split}_judgements.jsonl \
     --run_file runs/baseline.${retriever}.race-${split}.passages.run \
@@ -50,7 +51,7 @@ python3 -m evaluation.llm_prejudge \
     --rel_subset 3 \
     --split ${split} \
     --threshold ${TAU} \
-    --weighted_factor 0.25 \
+    --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/outputs/${split}_${aug_method}_psgs.jsonl \
     --judgement_file ${DATASET_DIR}/crux/judgements/${split}_${aug_method}_judgements.jsonl \
     --run_file runs/baseline.${retriever}.race-${split}.passages.run \
