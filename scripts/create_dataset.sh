@@ -1,6 +1,6 @@
 #!/bin/sh
 # The following lines instruct Slurm 
-#SBATCH --job-name=create-data
+#SBATCH --job-name=create-context
 #SBATCH --cpus-per-task=32
 #SBATCH --nodes=1
 #SBATCH --mem=32G
@@ -12,28 +12,10 @@
 source ${HOME}/.bashrc
 conda activate rag
 
+for split in train test testb;do
 python3 augmentation/create_collections.py \
-    --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    --split test \
-    --output_dir ${DATASET_DIR}/RACE
-python3 augmentation/create_context_ranking_data.py \
-    --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    --split test \
-    --output_dir ${DATASET_DIR}/RACE/ranking \
-    --n_max_distractors 0 \
-    --threshold 3
-
-python3 augmentation/create_collections.py \
-    --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    --split testb \
-    --output_dir ${DATASET_DIR}/RACE
-python3 augmentation/create_context_ranking_data.py \
-    --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    --split testb \
-    --output_dir ${DATASET_DIR}/RACE/ranking \
-    --n_max_distractors 0 \
-    --threshold 3
+    --shard_dir ${DATASET_DIR}/crux/shard_data \
+    --ratings_dir ${DATASET_DIR}/crux/shard_data/ratings-gen \
+    --split ${split} \
+    --output_dir ${DATASET_DIR}/crux
+done

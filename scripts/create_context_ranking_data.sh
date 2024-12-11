@@ -14,38 +14,13 @@ conda activate rag
 cd ~/mdrag
 
 for split in test testb;do
+for threshold in 1 2 3 4 5;do
     python3 augmentation/create_context_ranking_data.py \
-        --shard_dir ${DATASET_DIR}/RACE/shard_data \
-        --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen/8b \
+        --shard_dir ${DATASET_DIR}/crux/shard_data \
+        --ratings_dir ${DATASET_DIR}/crux/shard_data/ratings-gen \
         --split ${split} \
-        --output_dir ${DATASET_DIR}/RACE/ranking \
+        --output_dir ${DATASET_DIR}/crux/ranking_${threshold} \
         --n_max_distractors 0 \
-        --threshold 3
-
-    # [analysis] other threshold
-    # for threshold in 4 5;do
-    #     python3 augmentation/create_context_ranking_data.py \
-    #         --shard_dir ${DATASET_DIR}/RACE/shard_data \
-    #         --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-    #         --split ${split} \
-    #         --output_dir ${DATASET_DIR}/RACE/ranking_${threshold} \
-    #         --n_max_distractors 0 \
-    #         --threshold ${threshold} 
-    # done
+        --threshold ${threshold} 
 done
-
-# python3 augmentation/create_context_ranking_data.py \
-#     --shard_dir ${DATASET_DIR}/RACE/shard_data \
-#     --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-#     --split test \
-#     --output_dir ${DATASET_DIR}/RACE/ranking \
-#     --n_max_distractors 0 \
-#     --threshold 3
-#
-# python3 augmentation/create_context_ranking_data.py \
-#     --shard_dir ${DATASET_DIR}/RACE/shard_data \
-#     --ratings_dir ${DATASET_DIR}/RACE/shard_data/ratings-gen \
-#     --split testb \
-#     --output_dir ${DATASET_DIR}/RACE/ranking \
-#     --n_max_distractors 0 \
-#     --threshold 3
+done

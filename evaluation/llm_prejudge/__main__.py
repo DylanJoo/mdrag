@@ -113,7 +113,7 @@ if __name__ == "__main__":
     )
 
     # augmented context
-    if 'vanilla' in args.tag:
+    if ('vanilla' in args.tag) or ('oracle-passage' in args.tag):
         judgements = judgements_base
         passages = passages_base
     else:
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         n_tokens_oracle = len(tokenizer.tokenize(
             " ".join([passages_base[psgid] for psgid in psgids])
         ))
-        density_based = sum(answerable) / (1+n_tokens_oracle)
+        density_based = sum(answerable) / n_tokens_oracle
 
         # [retrieval-augmented] context information
         if ('oracle-report' in args.tag) or ('llmrg' in args.tag):
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
         ## calculate density
         n_tokens = len(tokenizer.tokenize(context)) 
-        density = coverage / n_tokens
+        density = sum(ratings[answerable] >= args.threshold) / n_tokens
         norm_density = (density / density_based) ** args.weighted_factor
         outputs['density'].append(norm_density)
         outputs['num_segs'].append(len(psgids))
@@ -209,5 +209,5 @@ if __name__ == "__main__":
     logger.info(f' # Mean number of tokens       : {mean_num_tokens:.2f}\n')
 
     print(f"  {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} |" + \
-          f"{mean_coverage:.4f} | {mean_density:.4f} |" + \
+          f" {mean_coverage:.4f} | {mean_density:.4f} |" + \
           f" {mean_rprec[0]:.4f} - {mean_rprec[1]:.4f} - {mean_rprec[2]:.4f} | {mean_ap:.4f}")
