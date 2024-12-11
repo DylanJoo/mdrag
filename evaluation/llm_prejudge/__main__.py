@@ -74,19 +74,21 @@ def load_passages(path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Print output")
     parser.add_argument("--generator_name", type=str, default=None)
-    parser.add_argument("--run_file", type=str, default=None)
-    parser.add_argument("--topk", type=int, default=1000)
-    parser.add_argument("--weighted_factor", type=float, default=1)
-    parser.add_argument("--split", type=str, default='test')
 
-    parser.add_argument("--judgement_file", type=str, default=None)
-    parser.add_argument("--threshold", type=int, default=3)
-    parser.add_argument("--rel_subset", type=int, default=1)
-
-    parser.add_argument("--report_file", type=str, default=None)
-    parser.add_argument("--passage_path", type=str, default=None)
+    # base
     parser.add_argument("--dataset_dir", type=str, default=None)
+    parser.add_argument("--rel_subset", type=int, default=3)
+    parser.add_argument("--split", type=str, default='test')
+    parser.add_argument("--threshold", type=int, default=3)
+    parser.add_argument("--weighted_factor", type=float, default=1)
+    # context 
+    parser.add_argument("--passage_path", type=str, default=None)
+    parser.add_argument("--judgement_file", type=str, default=None)
+    # ranking
+    parser.add_argument("--run_file", type=str, default=None)
+    parser.add_argument("--topk", type=int, default=100)
     parser.add_argument("--tag", type=str, default=None)
+    parser.add_argument("--report_file", type=str, default=None)
     args = parser.parse_args()
 
     # load tokenizer
@@ -110,7 +112,10 @@ if __name__ == "__main__":
     )
 
     # augmented context
-    if ('vanilla' in args.tag) or ('oracle-passage' in args.tag):
+    if 'vanilla' in args.tag:
+        judgements = judgements_base
+        passages = load_passages(args.passage_path)
+    elif 'oracle-passage' in args.tag:
         judgements = judgements_base
         passages = passages_base
     else:
@@ -151,7 +156,7 @@ if __name__ == "__main__":
         for psgid in psgids:
 
             ## answerbaility 
-            if (example_id == psgid.split(":")[0]) or (psgid == 'report'):
+            if example_id == psgid.split(":")[0]: # only consider the context derieved from relevant
                 judgement = judgements[example_id][psgid]
                 ratings.append(judgement)
 
@@ -192,15 +197,15 @@ if __name__ == "__main__":
     # results from ir_measures if have runs
     if runs is not None:
         qrels = ir_measures.read_trec_qrels(
-            os.path.join(args.dataset_dir, f'ranking_{args.threshold}/{args.split}_judgements.jsonl')
+            os.path.join(args.dataset_dir, f'ranking_{args.threshold}/{args.split}_qrels_oracle_context_pr.txt'),
         )
         runs = ir_measures.read_trec_run(args.run_file)
         rank_results = ir_measures.calc_aggregate([RPrec(rel=3), RPrec(rel=2), RPrec, MAP], qrels, runs)
         mean_rprec = (rank_results[RPrec(rel=3)], rank_results[RPrec(rel=2)], rank_results[RPrec])
         mean_ap = rank_results[MAP]
     else:
-        mean_rprec = (-1, -1, -1)
-        mean_ap = -1
+        mean_rprec = (1, 1, 1)
+        mean_ap = 1
 
     # print results
     logger.info(f" # === Evaluation Results === ")
@@ -208,7 +213,7 @@ if __name__ == "__main__":
     logger.info(f' # Mean Coverage     (tau={args.threshold}) : {mean_coverage:.4f}')
     logger.info(f' # Mean Norm-Density (tau={args.threshold}) : {mean_density:.4f}')
     logger.info(f' # RPrec (mu=3/2/1)  (tau={args.threshold}) : {mean_rprec[0]:.4f}, {mean_rprec[1]:.4f}, {mean_rprec[2]:.4f}')
-    logger.info(f' # MAP               (tau={args.threshold}) : {mean_ap:.4f}')
+    logger.info(f' # MAP @ {args.topk}          (tau={args.threshold}) : {mean_ap:.4f}')
     logger.info(f' # Mean number of segments     : {mean_num_segments:.2f}')
     logger.info(f' # Mean number of tokens       : {mean_num_tokens:.2f}\n')
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # The following lines instruct Slurm 
 #SBATCH --job-name=eval
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --nodes=1
 #SBATCH --mem=16G
 #SBATCH --ntasks-per-node=1
@@ -13,88 +13,49 @@ source ${HOME}/.bashrc
 conda activate rag
 cd ~/mdrag
 
-rm test.figure4
-rm testb.figure4
+rm -rf test.figure4
+rm -rf testb.figure4
+
+TAU=3
+
+# [vanilla]
 aug_method=vanilla
-for topk in 10 20 30;do
 retriever=contriever
-    split=test
-    python3 -m evaluation.llm_prejudge \
-        --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --judgement_file ${DATASET_DIR}/RACE/ranking/${split}_judgements.jsonl \
-        --threshold 3 \
-        --run_file runs/baseline.${retriever}.race-${split}.passages.run \
-        --topk ${topk} \
-        --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-        --n_questions 10 \
-        --passage_path ${DATASET_DIR}/RACE/passages \
-        --tag ${retriever}-${topk}-${aug_method} >> ${split}.figure4
-    split=testb
-    python3 -m evaluation.llm_prejudge \
-        --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --judgement_file ${DATASET_DIR}/RACE/ranking/${split}_judgements.jsonl \
-        --threshold 3 \
-        --run_file runs/baseline.${retriever}.race-${split}.passages.run \
-        --topk ${topk} \
-        --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-        --n_questions 15 \
-        --passage_path ${DATASET_DIR}/RACE/passages \
-        --tag ${retriever}-${topk}-${aug_method} >> ${split}.figure4
+for topk in 10 20 30;do
+for split in test testb;do
+python3 -m evaluation.llm_prejudge \
+    --generator_name meta-llama/Meta-Llama-3.1-70B-Instruct \
+    --dataset_dir ${DATASET_DIR}/crux \
+    --rel_subset 3 \
+    --split ${split} \
+    --threshold ${TAU} \
+    --weighted_factor 0.25 \
+    --passage_path ${DATASET_DIR}/crux/passages \
+    --judgement_file ${DATASET_DIR}/crux/ranking_${TAU}/${split}_judgements.jsonl \
+    --run_file runs/baseline.${retriever}.race-${split}.passages.run \
+    --topk ${topk} \
+    --tag ${retriever}-${topk}-${aug_method} >> ${split}.figure4
+done
 done
 
-aug_method=vanilla
-topk=10
-retriever=contriever
-split=test
+# [Bartsum] [recomp]
+for topk in 10 20 30;do
+for split in test testb;do
+for aug_method in bartsum recomp;do
+for retriever in bm25 contriever splade;do
 python3 -m evaluation.llm_prejudge \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --judgement_file ${DATASET_DIR}/RACE/ranking/${split}_judgements.jsonl \
-    --threshold 3 \
+    --generator_name meta-llama/Meta-Llama-3.1-70B-Instruct \
+    --dataset_dir ${DATASET_DIR}/crux \
+    --rel_subset 3 \
+    --split ${split} \
+    --threshold ${TAU} \
+    --weighted_factor 0.25 \
+    --passage_path ${DATASET_DIR}/crux/outputs/${split}_${aug_method}_psgs.jsonl \
+    --judgement_file ${DATASET_DIR}/crux/judgements/${split}_${aug_method}_judgements.jsonl \
     --run_file runs/reranking.${retriever}+monoT5.race-${split}.passages.run \
     --topk ${topk} \
-    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-    --n_questions 10 \
-    --passage_path ${DATASET_DIR}/RACE/passages \
-    --tag ${retriever}+monoT5-${topk}-${aug_method} >> ${split}.figure4
-split=testb
-python3 -m evaluation.llm_prejudge \
-    --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-    --judgement_file ${DATASET_DIR}/RACE/ranking/${split}_judgements.jsonl \
-    --threshold 3 \
-    --run_file runs/reranking.${retriever}+monoT5.race-${split}.passages.run \
-    --topk ${topk} \
-    --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-    --n_questions 15 \
-    --passage_path ${DATASET_DIR}/RACE/passages \
-    --tag ${retriever}+monoT5-${topk}-${aug_method} >> ${split}.figure4
-
-
-for aug_method in recomp bartsum;do
-for topk in 10 20 30;do
-for retriever in contriever;do
-    split=test
-    python3 -m evaluation.llm_prejudge \
-        --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --judgement_file judgements/${split}_${aug_method}_judgements.jsonl \
-        --threshold 3 \
-        --run_file runs/reranking.${retriever}+monoT5.race-${split}.passages.run \
-        --topk ${topk} \
-        --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-        --n_questions 10 \
-        --passage_path outputs/${split}_${aug_method}_psgs.jsonl \
-        --tag ${retriever}+monoT5-${topk}-${aug_method} >> ${split}.figure4
-    split=testb
-    python3 -m evaluation.llm_prejudge \
-        --generator_name meta-llama/Meta-Llama-3.1-8B-Instruct \
-        --judgement_file judgements/${split}_${aug_method}_judgements.jsonl \
-        --threshold 3 \
-        --run_file runs/reranking.${retriever}+monoT5.race-${split}.passages.run \
-        --topk ${topk} \
-        --qrels ${DATASET_DIR}/RACE/ranking/${split}_qrels_oracle_context_pr.txt \
-        --n_questions 15 \
-        --passage_path outputs/${split}_${aug_method}_psgs.jsonl \
-        --tag ${retriever}+monoT5-${topk}-${aug_method} >> ${split}.figure4
+    --tag ${retriever}-reranking-${topk}-${aug_method} >> ${split}.figure4
 done
 done
 done
-
+done
