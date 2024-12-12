@@ -94,7 +94,7 @@ def binarize_amount_rerank_greedy(item_, threshold=3):
             continue
         if (i_doc, j) in ids['useful_passages']:
             continue
-        if (max_rating >= r).all():
+        if (max_rating > r).all():
             ids['redundant_passages'].append( (i_doc, j) )
 
     return ids
