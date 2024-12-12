@@ -18,9 +18,9 @@ rm -rf testb.figure2
 for split in test testb;do
     echo "crux-"${split}
 for tau in 1 2 3 4 5;do
-    echo " [Threshold tau ="${tau}"]"
+    echo " [Threshold tau ="${tau}"]" >> ${split}.figure2
 for retrieval in bm25 contriever splade;do
-    printf '%-15s|' ' baseline' ${retrieval}
+    printf '%-15s|' ' baseline' ${retrieval} >> ${split}.figure2
     ir_measures \
         ${DATASET_DIR}/crux/ranking_${tau}/${split}_qrels_oracle_context_pr.txt \
         runs/baseline.${retrieval}.race-${split}.passages.run \
