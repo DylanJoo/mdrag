@@ -35,7 +35,7 @@ python3 -m evaluation.llm_prejudge \
     --judgement_file ${DATASET_DIR}/crux/ranking_${TAU}/${split}_judgements.jsonl \
     --run_file runs/baseline.${retriever}.race-${split}.passages.run \
     --topk ${topk} \
-    --tag ${retriever}-${topk}-${aug_method} >> ${split}.table2
+    --tag ${retriever}-${topk}-${aug_method} >> ${split}.table3
 done
 done
 
