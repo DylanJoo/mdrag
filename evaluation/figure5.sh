@@ -22,7 +22,7 @@ W=0.5
 
 # [vanilla]
 aug_method=vanilla
-for topk in 10 20 30;do
+for topk in 10;do
 for split in test testb;do
 for retriever in bm25 contriever splade;do
 python3 -m evaluation.llm_prejudge \
@@ -36,7 +36,7 @@ python3 -m evaluation.llm_prejudge \
     --judgement_file ${DATASET_DIR}/crux/ranking_${TAU}/${split}_judgements.jsonl \
     --run_file runs/baseline.${retriever}.race-${split}.passages.run \
     --topk ${topk} \
-    --tag ${retriever}-${topk}-${aug_method} >> ${split}.figure5
+    --tag ${retriever}-${aug_method}:${TAU} >> ${split}.figure5
 done
 done
 done
@@ -55,9 +55,22 @@ python3 -m evaluation.llm_prejudge \
     --weighted_factor $W \
     --passage_path ${DATASET_DIR}/crux/outputs/${split}_${aug_method}_psgs.jsonl \
     --judgement_file ${DATASET_DIR}/crux/judgements/${split}_${aug_method}_judgements.jsonl \
+    --run_file runs/baseline.${retriever}.race-${split}.passages.run \
+    --topk ${topk} \
+    --tag ${retriever}-${topk}-${aug_method}:${TAU} >> ${split}.figure5
+
+python3 -m evaluation.llm_prejudge \
+    --generator_name meta-llama/Meta-Llama-3.1-70B-Instruct \
+    --dataset_dir ${DATASET_DIR}/crux \
+    --rel_subset 3 \
+    --split ${split} \
+    --threshold ${TAU} \
+    --weighted_factor $W \
+    --passage_path ${DATASET_DIR}/crux/outputs/${split}_${aug_method}_psgs.jsonl \
+    --judgement_file ${DATASET_DIR}/crux/judgements/${split}_${aug_method}_judgements.jsonl \
     --run_file runs/reranking.${retriever}+monoT5.race-${split}.passages.run \
     --topk ${topk} \
-    --tag ${retriever}+monoT5-${topk}-${aug_method} >> ${split}.figure5
+    --tag ${retriever}+monoT5-${aug_method}:${TAU} >> ${split}.figure5
 done
 done
 done
