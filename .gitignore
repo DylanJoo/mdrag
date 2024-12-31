@@ -11,6 +11,8 @@ judgements/
 judgements/*jsonl
 testing/*
 
+data/
+
 
 **swp
 *errr
