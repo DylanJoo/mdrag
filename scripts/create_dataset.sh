@@ -10,7 +10,6 @@
 
 # Set-up the environment.
 source ${HOME}/.bashrc
-conda activate rag
 
 for split in train test testb;do
 python3 augmentation/create_collections.py \
