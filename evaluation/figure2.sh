@@ -17,7 +17,7 @@ rm -rf testb.figure2
 
 for split in test testb;do
     echo "crux-"${split}
-for tau in 1 2 3 4 5;do
+for tau in 1 3 5;do
     echo " [Threshold tau ="${tau}"]" >> ${split}.figure2
 for retrieval in bm25 contriever splade;do
     printf '%-15s|' ' baseline' ${retrieval} >> ${split}.figure2

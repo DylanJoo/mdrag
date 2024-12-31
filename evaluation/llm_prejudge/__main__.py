@@ -178,6 +178,13 @@ if __name__ == "__main__":
         ## calculate coverage
         coverage = sum(ratings[answerable] >= args.threshold) / sum(answerable)
         outputs['coverage'].append(coverage)
+        if ('oracle-report' in args.tag) and (coverage < 1):
+            print(example_id)
+            print(answerable)
+            print(ratings[answerable])
+            print(qrels[example_id])
+            print([judgements_base[example_id][pid] for pid in qrels[example_id]])
+            print(judgement_oracle[answerable])
 
         ## calculate density
         n_tokens = len(tokenizer.tokenize(context)) 
@@ -212,11 +219,11 @@ if __name__ == "__main__":
     logger.info(f" # TAG : {args.tag} | {num_coverage} examples")
     logger.info(f' # Mean Coverage     (tau={args.threshold}) : {mean_coverage:.4f}')
     logger.info(f' # Mean Norm-Density (tau={args.threshold}) : {mean_density:.4f}')
-    logger.info(f' # RPrec (mu=3/2/1)  (tau={args.threshold}) : {mean_rprec[0]:.4f}, {mean_rprec[1]:.4f}, {mean_rprec[2]:.4f}')
+    logger.info(f' # RPrec (mu=3/2/1)  (tau={args.threshold}) : {mean_rprec[0]:.4f}, {mean_rprec[2]:.4f}')
     logger.info(f' # MAP @ {args.topk}          (tau={args.threshold}) : {mean_ap:.4f}')
     logger.info(f' # Mean number of segments     : {mean_num_segments:.2f}')
     logger.info(f' # Mean number of tokens       : {mean_num_tokens:.2f}\n')
 
     print(f"  {args.tag} | {mean_num_segments:.2f} | {mean_num_tokens:.2f} |" + \
           f" {mean_coverage:.4f} | {mean_density:.4f} |" + \
-          f" {mean_rprec[0]:.4f} - {mean_rprec[1]:.4f} - {mean_rprec[2]:.4f} | {mean_ap:.4f}")
+          f" {mean_rprec[0]:.4f} | {mean_rprec[1]:.4f} | {mean_rprec[2]:.4f} | {mean_ap:.4f}")

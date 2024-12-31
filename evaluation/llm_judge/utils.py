@@ -13,6 +13,7 @@ def load_qrel(path, threshold=0):
     data = defaultdict(list)
     if path is None:
         return None
+    print(path)
     with open(path) as f:
         for line in f:
             item = line.strip().split()

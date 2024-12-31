@@ -17,7 +17,6 @@ from evaluation.llm_judge.utils import (
     load_questions, 
     load_contexts, 
     load_judgements,
-    load_qrels
 )
 
 def get_token_length(entity, tokenizer):
@@ -46,10 +45,7 @@ def main():
     documents = load_contexts(os.path.join(args.dataset_dir, f"documents/{args.split}_docs.jsonl"))
     passages = load_contexts(os.path.join(args.dataset_dir, f"passages/{args.split}_psgs.jsonl"))
     # judgements = load_judgements(os.path.join(args.dataset_dir, f"ranking_3/{args.split}_judgements.jsonl"))
-    qresl_3 = load_qrels(
-        os.path.join(args.dataset_dir, f"ranking_3/{args.split}_topics_exam_questions.jsonl"),
-        threshold=3
-    )
+    summaries = load_contexts(os.path.join(args.dataset_dir, f"outputs/{args.split}_oracle-report_psgs.jsonl"))
 
     # tokenization and calculate
     topic_token_length = get_token_length(topics.values(), tokenizer)
@@ -73,9 +69,9 @@ def main():
         len(document_token_length), round(np.mean(document_token_length), 1)
     ))
 
-    judgementV = get_token_length(documents.values(), tokenizer)
-    print("Document\nAmount: {}\nAvg. length: {}\n".format(
-        len(document_token_length), round(np.mean(document_token_length), 1)
+    summary_token_length = get_token_length(summaries.values(), tokenizer)
+    print("Summary\nAmount: {}\nAvg. length: {}\n".format(
+        len(summary_token_length), round(np.mean(summary_token_length), 1)
     ))
 
 if __name__ == "__main__":
